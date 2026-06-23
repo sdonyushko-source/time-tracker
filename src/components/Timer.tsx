@@ -1,7 +1,11 @@
+import { Task } from "../db";
+
 interface TimerProps {
   isActive: boolean;
   elapsedSeconds: number;
   onToggle: () => void;
+  tasks: Task[];
+  selectedTaskId: string;
 }
 
 function formatTime(seconds: number): string {
@@ -43,7 +47,7 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId }: TimerProps) {
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
       <div style={{
@@ -66,7 +70,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle }: TimerProps
             color: "#181A2C",
             margin: 0,
           }}>
-            beSirius 2.0 Twin interface
+            {tasks.find((t) => t.id === selectedTaskId)?.name ?? "Select a task"}
           </p>
           <p style={{
             width: 90,

@@ -1,10 +1,27 @@
-const tasks = [
-  { name: "beSirius 2.0 Twin interface", active: true, badge: null, time: "02:34:47" },
-  { name: "beSirius 2.0 Sharing interface", active: false, badge: null, time: "01:47:36" },
-  { name: "Claim twin, invite to fill their twin", active: false, badge: "2", time: "00:54:43" },
-];
+import { TimeEntry, Settings } from "../db";
+import { formatTime } from "../utils";
 
-export default function Today() {
+interface TodayProps {
+  entries: TimeEntry[];
+  settings: Settings;
+  dailyGoalSeconds: number;
+}
+
+export default function Today({ entries, settings: _settings, dailyGoalSeconds }: TodayProps) {
+  const totalSeconds = entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
+
+  // Group entries by task
+  const taskMap: Record<string, { name: string; totalSeconds: number; active: boolean }> = {};
+  entries.forEach((e) => {
+    if (!taskMap[e.taskId]) {
+      taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, active: false };
+    }
+    taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
+    if (!e.endTime) taskMap[e.taskId].active = true;
+  });
+  const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
+
   return (
     <div style={{
       border: "1px solid #E3E5EA",
@@ -40,7 +57,7 @@ export default function Today() {
             fontFamily: "'Inter', sans-serif",
             fontVariantNumeric: "tabular-nums",
           }}>
-            05:17:06 / 06:00:00 · 88%
+            {formatTime(totalSeconds)} / {formatTime(dailyGoalSeconds)} · {pct}%
           </span>
         </div>
 
@@ -53,7 +70,7 @@ export default function Today() {
         }}>
           <div style={{
             height: 12,
-            width: "88%",
+            width: `${pct}%`,
             background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)",
             boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)",
           }} />
@@ -63,7 +80,7 @@ export default function Today() {
       <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
         {tasks.map((task) => (
           <div
-            key={task.name}
+            key={task.id}
             style={{
               display: "flex",
               alignItems: "center",
@@ -103,19 +120,6 @@ export default function Today() {
                   display: "inline-block",
                 }} />
               )}
-              {task.badge && (
-                <span style={{
-                  background: "#F6F6F6",
-                  borderRadius: 4,
-                  padding: "0 4px",
-                  fontSize: 12,
-                  color: "#908F8F",
-                  flexShrink: 0,
-                  lineHeight: "16px",
-                }}>
-                  {task.badge}
-                </span>
-              )}
             </div>
             <span style={{
               width: 72,
@@ -127,7 +131,7 @@ export default function Today() {
               fontFamily: "'Inter', sans-serif",
               fontVariantNumeric: "tabular-nums",
             }}>
-              {task.time}
+              {formatTime(task.totalSeconds)}
             </span>
           </div>
         ))}

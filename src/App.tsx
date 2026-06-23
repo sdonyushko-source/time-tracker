@@ -1,14 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import Timer from "./components/Timer";
 import Today from "./components/Today";
 import Summary from "./components/Summary";
+import {
+  Settings, Task, TimeEntry,
+  initDB, getSettings, getTasks,
+  getTodayEntries, getWeekEntries, getMonthEntries,
+  startEntry, stopEntry,
+} from "./db";
+
+const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
 export default function App() {
   const [isActive, setIsActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
+  const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
+  const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      await initDB();
+      const [s, t, today, week, month] = await Promise.all([
+        getSettings(), getTasks(), getTodayEntries(), getWeekEntries(), getMonthEntries(),
+      ]);
+      setSettings(s);
+      setTasks(t);
+      if (t.length) setSelectedTaskId(t[0].id);
+      setTodayEntries(today);
+      setWeekEntries(week);
+      setMonthEntries(month);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!isActive) return;
@@ -21,11 +52,29 @@ export default function App() {
     appWindow.setSize(new LogicalSize(440, isExpanded ? 520 : 120));
   }, [isExpanded]);
 
-  const handleToggle = () => {
+  const refresh = useCallback(async () => {
+    const [today, week, month] = await Promise.all([
+      getTodayEntries(), getWeekEntries(), getMonthEntries(),
+    ]);
+    setTodayEntries(today);
+    setWeekEntries(week);
+    setMonthEntries(month);
+  }, []);
+
+  const handleToggle = async () => {
     if (isActive) {
+      if (activeEntryId) {
+        await stopEntry(activeEntryId, new Date().toISOString(), elapsedSeconds);
+        setActiveEntryId(null);
+      }
       setIsActive(false);
       setElapsedSeconds(0);
+      await refresh();
     } else {
+      if (!selectedTaskId) return;
+      const task = tasks.find((t) => t.id === selectedTaskId);
+      const id = await startEntry(selectedTaskId, task?.name ?? "", settings.hourlyRate, settings.currency);
+      setActiveEntryId(id);
       setIsActive(true);
     }
   };
@@ -38,7 +87,13 @@ export default function App() {
       position: "relative",
     }}>
       <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 80 }}>
-        <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} />
+        <Timer
+          isActive={isActive}
+          elapsedSeconds={elapsedSeconds}
+          onToggle={handleToggle}
+          tasks={tasks}
+          selectedTaskId={selectedTaskId}
+        />
       </div>
 
       <div style={{ height: 80 }} />
@@ -46,8 +101,17 @@ export default function App() {
       {isExpanded && (
         <div style={{ padding: "8px 24px 0" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Today />
-            <Summary />
+            <Today
+              entries={todayEntries}
+              settings={settings}
+              dailyGoalSeconds={settings.dailyGoalSeconds}
+            />
+            <Summary
+              todayEntries={todayEntries}
+              weekEntries={weekEntries}
+              monthEntries={monthEntries}
+              settings={settings}
+            />
           </div>
         </div>
       )}

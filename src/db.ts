@@ -1,12 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
-import { localDateString, getWeekStart, getMonthStart } from "./utils";
 
 let _db: Database | null = null;
-
-async function getDb(): Promise<Database> {
-  if (!_db) _db = await Database.load("sqlite:time-tracker.db");
-  return _db;
-}
 
 export interface Settings {
   hourlyRate: number;
@@ -35,78 +29,114 @@ export interface TimeEntry {
   updatedAt: string;
 }
 
-export interface TodayTask {
-  taskId: string;
-  taskName: string;
-  totalSeconds: number;
+function localDate(): string {
+  const d = new Date();
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
 }
 
-export interface SummaryRow {
-  label: string;
-  seconds: number;
-  amount: number;
-  bold: boolean;
+function weekStart(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
+}
+
+function monthStart(): string {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+}
+
+export async function initDB(): Promise<void> {
+  _db = await Database.load("sqlite:time-tracker.db");
+  await _db.execute(`
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      hourlyRate REAL,
+      currency TEXT,
+      dailyGoalSeconds INTEGER
+    )
+  `);
+  await _db.execute(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      archived INTEGER DEFAULT 0,
+      createdAt TEXT NOT NULL
+    )
+  `);
+  await _db.execute(`
+    CREATE TABLE IF NOT EXISTS time_entries (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      taskNameSnapshot TEXT,
+      date TEXT,
+      startTime TEXT,
+      endTime TEXT,
+      durationSeconds INTEGER,
+      hourlyRateSnapshot REAL,
+      currencySnapshot TEXT,
+      createdAt TEXT,
+      updatedAt TEXT
+    )
+  `);
 }
 
 export async function getSettings(): Promise<Settings> {
-  const db = await getDb();
-  const rows = await db.select<Settings[]>(
+  const rows = await _db!.select<Settings[]>(
     "SELECT hourlyRate, currency, dailyGoalSeconds FROM settings WHERE id = 1"
   );
   if (!rows.length) {
-    await db.execute(
-      "INSERT OR IGNORE INTO settings (id, hourlyRate, currency, dailyGoalSeconds) VALUES (1, 30, 'USD', 28800)"
+    await _db!.execute(
+      "INSERT OR IGNORE INTO settings (id, hourlyRate, currency, dailyGoalSeconds) VALUES (1, 30, 'USD', 21600)"
     );
-    return { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 28800 };
+    return { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
   }
   return rows[0];
 }
 
 export async function saveSettings(s: Settings): Promise<void> {
-  const db = await getDb();
-  await db.execute(
+  await _db!.execute(
     "INSERT OR REPLACE INTO settings (id, hourlyRate, currency, dailyGoalSeconds) VALUES (1, ?, ?, ?)",
     [s.hourlyRate, s.currency, s.dailyGoalSeconds]
   );
 }
 
 export async function getTasks(): Promise<Task[]> {
-  const db = await getDb();
-  return db.select<Task[]>(
+  return _db!.select<Task[]>(
     "SELECT id, name, archived, createdAt FROM tasks WHERE archived = 0 ORDER BY createdAt DESC"
   );
 }
 
-export async function createTask(name: string): Promise<string> {
-  const db = await getDb();
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await db.execute(
-    "INSERT INTO tasks (id, name, archived, createdAt) VALUES (?, ?, 0, ?)",
-    [id, name, now]
-  );
-  return id;
-}
-
-export async function getTodayTasks(): Promise<TodayTask[]> {
-  const db = await getDb();
-  const today = localDateString();
-  return db.select<TodayTask[]>(
-    `SELECT taskId, taskNameSnapshot as taskName, SUM(durationSeconds) as totalSeconds
-     FROM time_entries
-     WHERE date = ? AND durationSeconds IS NOT NULL
-     GROUP BY taskId, taskNameSnapshot
-     ORDER BY totalSeconds DESC`,
-    [today]
+export async function getTodayEntries(): Promise<TimeEntry[]> {
+  return _db!.select<TimeEntry[]>(
+    "SELECT * FROM time_entries WHERE date = ? ORDER BY startTime DESC",
+    [localDate()]
   );
 }
 
-export async function getOpenEntry(): Promise<TimeEntry | null> {
-  const db = await getDb();
-  const rows = await db.select<TimeEntry[]>(
-    "SELECT * FROM time_entries WHERE endTime IS NULL ORDER BY createdAt DESC LIMIT 1"
+export async function getWeekEntries(): Promise<TimeEntry[]> {
+  return _db!.select<TimeEntry[]>(
+    "SELECT * FROM time_entries WHERE date >= ? ORDER BY startTime DESC",
+    [weekStart()]
   );
-  return rows[0] ?? null;
+}
+
+export async function getMonthEntries(): Promise<TimeEntry[]> {
+  return _db!.select<TimeEntry[]>(
+    "SELECT * FROM time_entries WHERE date >= ? ORDER BY startTime DESC",
+    [monthStart()]
+  );
 }
 
 export async function startEntry(
@@ -115,77 +145,25 @@ export async function startEntry(
   hourlyRate: number,
   currency: string
 ): Promise<string> {
-  const db = await getDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const today = localDateString();
-  await db.execute(
+  await _db!.execute(
     `INSERT INTO time_entries
        (id, taskId, taskNameSnapshot, date, startTime, endTime, durationSeconds,
         hourlyRateSnapshot, currencySnapshot, createdAt, updatedAt)
      VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`,
-    [id, taskId, taskName, today, now, hourlyRate, currency, now, now]
+    [id, taskId, taskName, localDate(), now, hourlyRate, currency, now, now]
   );
   return id;
 }
 
-export async function stopEntry(entryId: string): Promise<void> {
-  const db = await getDb();
-  const rows = await db.select<{ startTime: string }[]>(
-    "SELECT startTime FROM time_entries WHERE id = ?",
-    [entryId]
-  );
-  if (!rows.length) return;
-  const now = new Date().toISOString();
-  const duration = Math.round(
-    (new Date(now).getTime() - new Date(rows[0].startTime).getTime()) / 1000
-  );
-  await db.execute(
+export async function stopEntry(
+  id: string,
+  endTime: string,
+  durationSeconds: number
+): Promise<void> {
+  await _db!.execute(
     "UPDATE time_entries SET endTime = ?, durationSeconds = ?, updatedAt = ? WHERE id = ?",
-    [now, duration, now, entryId]
-  );
-}
-
-export async function getSummary(hourlyRate: number): Promise<SummaryRow[]> {
-  const db = await getDb();
-  const today = localDateString();
-  const weekStart = getWeekStart();
-  const monthStart = getMonthStart();
-
-  const rows = await db.select<{ period: string; total: number }[]>(
-    `SELECT
-       CASE
-         WHEN date = ? THEN 'today'
-         WHEN date >= ? THEN 'week_rest'
-         ELSE 'month_rest'
-       END as period,
-       SUM(durationSeconds) as total
-     FROM time_entries
-     WHERE date >= ? AND durationSeconds IS NOT NULL
-     GROUP BY period`,
-    [today, weekStart, monthStart]
-  );
-
-  const map: Record<string, number> = {};
-  rows.forEach((r) => {
-    if (r.period) map[r.period] = Number(r.total);
-  });
-
-  const todaySec = map["today"] ?? 0;
-  const weekSec = todaySec + (map["week_rest"] ?? 0);
-  const monthSec = weekSec + (map["month_rest"] ?? 0);
-
-  return [
-    { label: "Today", seconds: todaySec, amount: (todaySec / 3600) * hourlyRate, bold: false },
-    { label: "This week", seconds: weekSec, amount: (weekSec / 3600) * hourlyRate, bold: false },
-    { label: "This month", seconds: monthSec, amount: (monthSec / 3600) * hourlyRate, bold: true },
-  ];
-}
-
-export async function getHistory(limit = 100): Promise<TimeEntry[]> {
-  const db = await getDb();
-  return db.select<TimeEntry[]>(
-    "SELECT * FROM time_entries WHERE durationSeconds IS NOT NULL ORDER BY date DESC, startTime DESC LIMIT ?",
-    [limit]
+    [endTime, durationSeconds, new Date().toISOString(), id]
   );
 }

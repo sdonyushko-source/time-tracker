@@ -1,10 +1,30 @@
-const rows = [
-  { label: "Today",      time: "05:17:06",  amount: "$158.55",   bold: false },
-  { label: "This week",  time: "24:56:32",  amount: "$748.27",   bold: false },
-  { label: "This month", time: "120:34:47", amount: "$3,617.39", bold: true  },
-];
+import { TimeEntry, Settings } from "../db";
+import { formatTime, formatAmount } from "../utils";
 
-export default function Summary() {
+interface SummaryProps {
+  todayEntries: TimeEntry[];
+  weekEntries: TimeEntry[];
+  monthEntries: TimeEntry[];
+  settings: Settings;
+}
+
+function sumSeconds(entries: TimeEntry[]): number {
+  return entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+}
+
+export default function Summary({ todayEntries, weekEntries, monthEntries, settings }: SummaryProps) {
+  const todaySec = sumSeconds(todayEntries);
+  const weekSec = sumSeconds(weekEntries);
+  const monthSec = sumSeconds(monthEntries);
+  const rate = settings.hourlyRate;
+  const currency = settings.currency;
+
+  const rows = [
+    { label: "Today",      seconds: todaySec,  amount: (todaySec  / 3600) * rate, bold: false },
+    { label: "This week",  seconds: weekSec,   amount: (weekSec   / 3600) * rate, bold: false },
+    { label: "This month", seconds: monthSec,  amount: (monthSec  / 3600) * rate, bold: true  },
+  ];
+
   return (
     <div style={{
       background: "#F6F6F6",
@@ -35,10 +55,10 @@ export default function Summary() {
             fontVariantNumeric: "tabular-nums",
             fontFamily: "'Inter', sans-serif",
           }}>
-            {row.time}
+            {formatTime(row.seconds)}
           </span>
           <span style={{ width: 99, flexShrink: 0, textAlign: "right" }}>
-            {row.amount}
+            {formatAmount(row.amount, currency)}
           </span>
         </div>
       ))}
