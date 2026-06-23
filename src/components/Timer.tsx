@@ -6,6 +6,8 @@ interface TimerProps {
   onToggle: () => void;
   tasks: Task[];
   selectedTaskId: string;
+  showTaskPicker: boolean;
+  onTaskClick: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -47,7 +49,9 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick }: TimerProps) {
+  const nameColor = (showTaskPicker || (selectedTaskId !== "" && isActive)) ? "#7381D3" : "#181A2C";
+
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
       <div style={{
@@ -60,18 +64,27 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
         justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <p style={{
-            width: 214,
-            flexShrink: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontSize: 16,
-            color: "#181A2C",
-            margin: 0,
-          }}>
+          <button
+            onClick={onTaskClick}
+            style={{
+              width: 214,
+              flexShrink: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 16,
+              color: nameColor,
+              margin: 0,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              padding: 0,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
             {tasks.find((t) => t.id === selectedTaskId)?.name ?? "Select a task"}
-          </p>
+          </button>
           <p style={{
             width: 90,
             flexShrink: 0,

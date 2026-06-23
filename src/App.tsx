@@ -4,6 +4,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import Timer from "./components/Timer";
 import Today from "./components/Today";
 import Summary from "./components/Summary";
+import TaskPicker from "./components/TaskPicker";
 import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
@@ -22,6 +23,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
@@ -93,6 +95,8 @@ export default function App() {
           onToggle={handleToggle}
           tasks={tasks}
           selectedTaskId={selectedTaskId}
+          showTaskPicker={showTaskPicker}
+          onTaskClick={() => setShowTaskPicker(true)}
         />
       </div>
 
@@ -130,6 +134,20 @@ export default function App() {
       >
         <div style={{ width: 48, height: 4, borderRadius: 5, background: "#E3E5EA" }} />
       </div>
+
+      {showTaskPicker && (
+        <>
+          <div
+            onClick={() => setShowTaskPicker(false)}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+          />
+          <TaskPicker
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            onSelect={(id) => { setSelectedTaskId(id); setShowTaskPicker(false); }}
+          />
+        </>
+      )}
     </div>
   );
 }
