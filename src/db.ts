@@ -157,6 +157,20 @@ export async function startEntry(
   return id;
 }
 
+export async function createTask(name: string): Promise<string> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await _db!.execute(
+    "INSERT INTO tasks (id, name, archived, createdAt) VALUES (?, ?, 0, ?)",
+    [id, name, now]
+  );
+  return id;
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  await _db!.execute("UPDATE tasks SET archived = 1 WHERE id = ?", [id]);
+}
+
 export async function stopEntry(
   id: string,
   endTime: string,

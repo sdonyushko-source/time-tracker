@@ -6,6 +6,7 @@ import Today from "./components/Today";
 import Summary from "./components/Summary";
 import TaskPicker from "./components/TaskPicker";
 import MoreMenu from "./components/MoreMenu";
+import SettingsScreen from "./components/SettingsScreen";
 import { formatTime, formatAmount } from "./utils";
 import {
   Settings, Task, TimeEntry,
@@ -14,9 +15,12 @@ import {
   startEntry, stopEntry,
 } from "./db";
 
+type Screen = "timer" | "settings";
+
 const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
 export default function App() {
+  const [screen, setScreen] = useState<Screen>("timer");
   const [isActive, setIsActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -54,13 +58,29 @@ export default function App() {
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
-    appWindow.setSize(new LogicalSize(440, isExpanded ? 520 : 120));
-  }, [isExpanded]);
+    if (screen === "settings") {
+      appWindow.setSize(new LogicalSize(440, 520));
+    } else {
+      appWindow.setSize(new LogicalSize(440, isExpanded ? 520 : 120));
+    }
+  }, [screen, isExpanded]);
 
   const refresh = useCallback(async () => {
     const [today, week, month] = await Promise.all([
       getTodayEntries(), getWeekEntries(), getMonthEntries(),
     ]);
+    setTodayEntries(today);
+    setWeekEntries(week);
+    setMonthEntries(month);
+  }, []);
+
+  const loadData = useCallback(async () => {
+    const [s, t, today, week, month] = await Promise.all([
+      getSettings(), getTasks(), getTodayEntries(), getWeekEntries(), getMonthEntries(),
+    ]);
+    setSettings(s);
+    setTasks(t);
+    setSelectedTaskId((prev) => (t.find((task) => task.id === prev) ? prev : t.length ? t[0].id : ""));
     setTodayEntries(today);
     setWeekEntries(week);
     setMonthEntries(month);
@@ -107,6 +127,15 @@ export default function App() {
     await navigator.clipboard.writeText(lines.join("\n"));
     setShowMoreMenu(false);
   };
+
+  if (screen === "settings") {
+    return (
+      <SettingsScreen
+        onClose={() => setScreen("timer")}
+        onSave={() => { setScreen("timer"); loadData(); }}
+      />
+    );
+  }
 
   return (
     <div style={{
@@ -187,7 +216,7 @@ export default function App() {
         showMenu={showMoreMenu}
         onCopyReport={handleCopyReport}
         onHistory={() => alert("History coming soon")}
-        onSettings={() => alert("Settings coming soon")}
+        onSettings={() => { setShowMoreMenu(false); setScreen("settings"); }}
       />
     </div>
   );
