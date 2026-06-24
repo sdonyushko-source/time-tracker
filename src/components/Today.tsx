@@ -34,7 +34,6 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
     <div style={{
       border: "1px solid #E3E5EA",
       borderRadius: 12,
-      overflow: "hidden",
       paddingTop: 16,
       paddingLeft: 8,
       paddingRight: 8,
