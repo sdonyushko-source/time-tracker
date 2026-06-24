@@ -50,9 +50,8 @@ const labelStyle: React.CSSProperties = {
 export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
   const [currency, setCurrency] = useState("USD");
   const [hourlyRate, setHourlyRate] = useState("30");
-  const [goalH, setGoalH] = useState("6");
-  const [goalM, setGoalM] = useState("0");
-  const [goalS, setGoalS] = useState("0");
+  const [goalH, setGoalH] = useState("06");
+  const [goalM, setGoalM] = useState("00");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -63,9 +62,8 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       const [s, t] = await Promise.all([getSettings(), getTasks()]);
       setCurrency(s.currency);
       setHourlyRate(String(s.hourlyRate));
-      setGoalH(String(Math.floor(s.dailyGoalSeconds / 3600)));
-      setGoalM(String(Math.floor((s.dailyGoalSeconds % 3600) / 60)));
-      setGoalS(String(s.dailyGoalSeconds % 60));
+      setGoalH(String(Math.floor(s.dailyGoalSeconds / 3600)).padStart(2, "0"));
+      setGoalM(String(Math.floor((s.dailyGoalSeconds % 3600) / 60)).padStart(2, "0"));
       setTasks(t);
     })();
   }, []);
@@ -98,7 +96,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
     await saveSettings({
       hourlyRate: Number(hourlyRate),
       currency,
-      dailyGoalSeconds: (parseInt(goalH) || 0) * 3600 + (parseInt(goalM) || 0) * 60 + (parseInt(goalS) || 0),
+      dailyGoalSeconds: (parseInt(goalH) || 0) * 3600 + (parseInt(goalM) || 0) * 60,
     });
     onSave();
   };
@@ -210,47 +208,35 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
             {/* Daily goal */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-              <style>{`.goal-num::-webkit-inner-spin-button,.goal-num::-webkit-outer-spin-button{display:none}`}</style>
               <span style={labelStyle}>Daily goal</span>
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 2,
                 height: 48,
                 background: "white",
                 border: "1px solid #E3E5EA",
                 borderRadius: 8,
-                padding: "12px 16px",
+                padding: "0 16px",
                 boxSizing: "border-box",
               }}>
                 <input
-                  className="goal-num"
-                  type="number"
-                  min={0}
-                  max={99}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={2}
                   value={goalH}
-                  onChange={(e) => setGoalH(e.target.value)}
-                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
+                  onChange={(e) => setGoalH(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  onBlur={() => setGoalH((v) => v.padStart(2, "0"))}
+                  style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
                 />
                 <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
                 <input
-                  className="goal-num"
-                  type="number"
-                  min={0}
-                  max={59}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={2}
                   value={goalM}
-                  onChange={(e) => setGoalM(e.target.value)}
-                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
-                />
-                <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
-                <input
-                  className="goal-num"
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={goalS}
-                  onChange={(e) => setGoalS(e.target.value)}
-                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
+                  onChange={(e) => setGoalM(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  onBlur={() => setGoalM((v) => v.padStart(2, "0"))}
+                  style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
                 />
               </div>
             </div>

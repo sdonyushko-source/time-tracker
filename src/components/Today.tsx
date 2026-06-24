@@ -1,5 +1,5 @@
 import { TimeEntry, Settings } from "../db";
-import { formatTime } from "../utils";
+import { formatTimeHM } from "../utils";
 
 interface TodayProps {
   entries: TimeEntry[];
@@ -61,7 +61,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
             fontFamily: "'Inter', sans-serif",
             fontVariantNumeric: "tabular-nums",
           }}>
-            {formatTime(totalSeconds)} / {formatTime(dailyGoalSeconds)} · {pct}%
+            {formatTimeHM(totalSeconds)} / {formatTimeHM(dailyGoalSeconds)} · {pct}%
           </span>
         </div>
 
@@ -152,7 +152,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
               fontFamily: "'Inter', sans-serif",
               fontVariantNumeric: "tabular-nums",
             }}>
-              {formatTime(task.totalSeconds)}
+              {formatTimeHM(task.totalSeconds)}
             </span>
           </div>
         ))}

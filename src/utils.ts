@@ -5,6 +5,13 @@ export function formatTime(seconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
 
+// H:MM without leading zero on hours, no seconds. e.g. 21905 → "6:05", 84 → "0:01"
+export function formatTimeHM(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h + ":" + String(m).padStart(2, "0");
+}
+
 export function formatAmount(amount: number, currency: string): string {
   const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency + " ";
   return symbol + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
