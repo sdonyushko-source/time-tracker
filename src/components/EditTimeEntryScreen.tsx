@@ -255,8 +255,14 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   onKeyDown={(e) => {
                     if (e.key >= "0" && e.key <= "9") {
                       e.preventDefault();
-                      const d = session.startDisplay.replace(/\D/g, "");
-                      if (d.length < 4) updateSession(i, { startDisplay: digitsToDisplay(d + e.key) });
+                      const el = e.currentTarget;
+                      const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length;
+                      if (allSelected) {
+                        updateSession(i, { startDisplay: digitsToDisplay(e.key) });
+                      } else {
+                        const d = session.startDisplay.replace(/\D/g, "");
+                        if (d.length < 4) updateSession(i, { startDisplay: digitsToDisplay(d + e.key) });
+                      }
                     } else if (e.key === "Backspace") {
                       e.preventDefault();
                       const d = session.startDisplay.replace(/\D/g, "");
@@ -279,8 +285,14 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   onKeyDown={(e) => {
                     if (e.key >= "0" && e.key <= "9") {
                       e.preventDefault();
-                      const d = session.endDisplay.replace(/\D/g, "");
-                      if (d.length < 4) updateSession(i, { endDisplay: digitsToDisplay(d + e.key) });
+                      const el = e.currentTarget;
+                      const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length;
+                      if (allSelected) {
+                        updateSession(i, { endDisplay: digitsToDisplay(e.key) });
+                      } else {
+                        const d = session.endDisplay.replace(/\D/g, "");
+                        if (d.length < 4) updateSession(i, { endDisplay: digitsToDisplay(d + e.key) });
+                      }
                     } else if (e.key === "Backspace") {
                       e.preventDefault();
                       const d = session.endDisplay.replace(/\D/g, "");
