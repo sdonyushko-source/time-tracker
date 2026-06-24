@@ -83,38 +83,32 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   return (
     <div style={{
       width: 440,
-      minHeight: 520,
       background: "white",
       borderRadius: 16,
       overflow: "hidden",
-      position: "relative",
-      paddingBottom: 96,
+      display: "flex",
+      flexDirection: "column",
+      padding: "64px 24px 96px",
     }}>
       <span style={{
-        position: "absolute",
-        top: 64,
-        left: 24,
         fontSize: 20,
         fontWeight: 500,
         color: "#181A2C",
         fontFamily: "'Inter', sans-serif",
+        marginBottom: 24,
       }}>
         Settings
       </span>
 
       {/* Tracking block */}
       <div style={{
-        position: "absolute",
-        top: 100,
-        left: 24,
-        width: 392,
         background: "#F6F6F6",
         borderRadius: 12,
         padding: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        boxSizing: "border-box",
+        marginBottom: 12,
       }}>
         <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
           Tracking
@@ -223,17 +217,12 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
       {/* Tasks block */}
       <div style={{
-        position: "absolute",
-        top: 236,
-        left: 24,
-        width: 392,
         background: "#F6F6F6",
         borderRadius: 12,
         padding: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        boxSizing: "border-box",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
@@ -324,12 +313,11 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
       {/* Bottom buttons */}
       <div style={{
-        position: "absolute",
-        bottom: 24,
-        right: 24,
+        marginTop: "auto",
         display: "flex",
+        justifyContent: "flex-end",
         gap: 12,
-        alignItems: "center",
+        padding: "24px 24px 0",
       }}>
         <button
           onClick={onClose}
