@@ -41,13 +41,13 @@ export default function MoreMenu({ showMenu, onCopyReport, onHistory, onSettings
   return (
     <div style={{
       position: "absolute",
-      top: 100,
-      right: 8,
+      top: 56,
+      right: 16,
       background: "white",
       borderRadius: 8,
       padding: 8,
       boxShadow: "0px 8px 12px rgba(24,26,44,0.12)",
-      zIndex: 100,
+      zIndex: 200,
       display: "flex",
       flexDirection: "column",
       alignItems: "flex-end",
