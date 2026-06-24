@@ -11,9 +11,9 @@ function currencySymbol(c: string): string {
 
 const ThreeDotsIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="5" cy="12" r="1.5" fill="#181A2C"/>
+    <circle cx="12" cy="5" r="1.5" fill="#181A2C"/>
     <circle cx="12" cy="12" r="1.5" fill="#181A2C"/>
-    <circle cx="19" cy="12" r="1.5" fill="#181A2C"/>
+    <circle cx="12" cy="19" r="1.5" fill="#181A2C"/>
   </svg>
 );
 
@@ -277,14 +277,14 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
             <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
               Tasks
             </span>
-            {!isAddingTask ? (
+            {!isAddingTask && !renamingId ? (
               <span
                 onClick={() => setIsAddingTask(true)}
                 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
               >
                 Add
               </span>
-            ) : (
+            ) : isAddingTask ? (
               <div style={{ display: "flex", gap: 20 }}>
                 <span
                   onClick={handleCancelTask}
@@ -294,6 +294,21 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                 </span>
                 <span
                   onClick={handleSaveTask}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+                >
+                  Save
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 20 }}>
+                <span
+                  onClick={() => { setRenamingId(null); setRenameValue(""); }}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
+                >
+                  Cancel
+                </span>
+                <span
+                  onClick={() => handleRenameTask(renamingId!)}
                   style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
                 >
                   Save
@@ -323,34 +338,18 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
           {tasks.map((task) => (
             <div key={task.id}>
               {renamingId === task.id ? (
-                /* Rename inline UI */
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleRenameTask(task.id);
-                      if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
-                    }}
-                    style={{ ...inputBase, width: "100%" }}
-                  />
-                  <div style={{ display: "flex", gap: 20, justifyContent: "flex-end" }}>
-                    <span
-                      onClick={() => { setRenamingId(null); setRenameValue(""); }}
-                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
-                    >
-                      Cancel
-                    </span>
-                    <span
-                      onClick={() => handleRenameTask(task.id)}
-                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-                    >
-                      Save
-                    </span>
-                  </div>
-                </div>
+                /* Rename inline UI — buttons are in the header */
+                <input
+                  autoFocus
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRenameTask(task.id);
+                    if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
+                  }}
+                  style={{ ...inputBase, width: "100%" }}
+                />
               ) : (
                 /* Normal row */
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", position: "relative" }}>
