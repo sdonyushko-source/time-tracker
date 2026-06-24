@@ -356,7 +356,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                 <div
                   onMouseEnter={() => setHoveredTaskId(task.id)}
                   onMouseLeave={() => setHoveredTaskId(null)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", position: "relative" }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", position: "relative" }}
                 >
                   <span style={{
                     fontFamily: "'Inter', sans-serif",
