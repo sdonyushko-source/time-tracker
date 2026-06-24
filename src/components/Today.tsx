@@ -5,12 +5,10 @@ interface TodayProps {
   entries: TimeEntry[];
   settings: Settings;
   dailyGoalSeconds: number;
-  liveSeconds: number;
-  liveTaskId: string;
 }
 
-export default function Today({ entries, settings: _settings, dailyGoalSeconds, liveSeconds, liveTaskId }: TodayProps) {
-  const totalSeconds = entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) + liveSeconds;
+export default function Today({ entries, settings: _settings, dailyGoalSeconds }: TodayProps) {
+  const totalSeconds = entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
   const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
 
   // Group entries by task
@@ -22,10 +20,6 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
     taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
     if (!e.endTime) taskMap[e.taskId].active = true;
   });
-  if (liveTaskId && taskMap[liveTaskId]) {
-    taskMap[liveTaskId].totalSeconds += liveSeconds;
-    taskMap[liveTaskId].active = true;
-  }
   const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
 
   return (

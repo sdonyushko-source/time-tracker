@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Task } from "../db";
 
 interface TimerProps {
@@ -6,6 +7,7 @@ interface TimerProps {
   onToggle: () => void;
   tasks: Task[];
   selectedTaskId: string;
+  showTaskPicker: boolean;
   onTaskClick: () => void;
   onMoreClick: () => void;
 }
@@ -57,7 +59,10 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, onTaskClick, onMoreClick }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick, onMoreClick }: TimerProps) {
+  const [taskHovered, setTaskHovered] = useState(false);
+  const nameColor = (showTaskPicker || taskHovered) ? "#7381D3" : "#181A2C";
+
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
       <div style={{
@@ -72,6 +77,8 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <button
             onClick={onTaskClick}
+            onMouseEnter={() => setTaskHovered(true)}
+            onMouseLeave={() => setTaskHovered(false)}
             style={{
               width: 182,
               flexShrink: 0,
@@ -79,7 +86,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               fontSize: 16,
-              color: "#181A2C",
+              color: nameColor,
               margin: 0,
               background: "none",
               border: "none",
