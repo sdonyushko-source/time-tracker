@@ -6,7 +6,6 @@ interface TimerProps {
   onToggle: () => void;
   tasks: Task[];
   selectedTaskId: string;
-  showTaskPicker: boolean;
   onTaskClick: () => void;
   onMoreClick: () => void;
 }
@@ -58,9 +57,7 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick, onMoreClick }: TimerProps) {
-  const nameColor = (showTaskPicker || (selectedTaskId !== "" && isActive)) ? "#7381D3" : "#181A2C";
-
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, onTaskClick, onMoreClick }: TimerProps) {
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
       <div style={{
@@ -82,7 +79,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               fontSize: 16,
-              color: nameColor,
+              color: "#181A2C",
               margin: 0,
               background: "none",
               border: "none",

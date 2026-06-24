@@ -6,16 +6,17 @@ interface SummaryProps {
   weekEntries: TimeEntry[];
   monthEntries: TimeEntry[];
   settings: Settings;
+  liveSeconds: number;
 }
 
 function sumSeconds(entries: TimeEntry[]): number {
   return entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
 }
 
-export default function Summary({ todayEntries, weekEntries, monthEntries, settings }: SummaryProps) {
-  const todaySec = sumSeconds(todayEntries);
-  const weekSec = sumSeconds(weekEntries);
-  const monthSec = sumSeconds(monthEntries);
+export default function Summary({ todayEntries, weekEntries, monthEntries, settings, liveSeconds }: SummaryProps) {
+  const todaySec = sumSeconds(todayEntries) + liveSeconds;
+  const weekSec = sumSeconds(weekEntries) + liveSeconds;
+  const monthSec = sumSeconds(monthEntries) + liveSeconds;
   const rate = settings.hourlyRate;
   const currency = settings.currency;
 

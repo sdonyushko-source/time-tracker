@@ -101,6 +101,7 @@ export default function App() {
       const id = await startEntry(selectedTaskId, task?.name ?? "", settings.hourlyRate, settings.currency);
       setActiveEntryId(id);
       setIsActive(true);
+      await refresh();
     }
   };
 
@@ -151,7 +152,6 @@ export default function App() {
           onToggle={handleToggle}
           tasks={tasks}
           selectedTaskId={selectedTaskId}
-          showTaskPicker={showTaskPicker}
           onTaskClick={() => setShowTaskPicker(true)}
           onMoreClick={() => setShowMoreMenu(!showMoreMenu)}
         />
@@ -166,12 +166,15 @@ export default function App() {
               entries={todayEntries}
               settings={settings}
               dailyGoalSeconds={settings.dailyGoalSeconds}
+              liveSeconds={isActive ? elapsedSeconds : 0}
+              liveTaskId={isActive ? selectedTaskId : ""}
             />
             <Summary
               todayEntries={todayEntries}
               weekEntries={weekEntries}
               monthEntries={monthEntries}
               settings={settings}
+              liveSeconds={isActive ? elapsedSeconds : 0}
             />
           </div>
         </div>
