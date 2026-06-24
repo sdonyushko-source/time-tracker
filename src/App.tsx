@@ -5,6 +5,8 @@ import Timer from "./components/Timer";
 import Today from "./components/Today";
 import Summary from "./components/Summary";
 import TaskPicker from "./components/TaskPicker";
+import MoreMenu from "./components/MoreMenu";
+import { formatTime, formatAmount } from "./utils";
 import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
@@ -24,6 +26,7 @@ export default function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
@@ -79,6 +82,30 @@ export default function App() {
       setActiveEntryId(id);
       setIsActive(true);
     }
+  };
+
+  const handleCopyReport = async () => {
+    const taskMap: Record<string, { name: string; seconds: number }> = {};
+    monthEntries.forEach((e) => {
+      if (!taskMap[e.taskId]) taskMap[e.taskId] = { name: e.taskNameSnapshot, seconds: 0 };
+      taskMap[e.taskId].seconds += e.durationSeconds ?? 0;
+    });
+
+    const now = new Date();
+    const header = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const rate = settings.hourlyRate;
+    const currency = settings.currency;
+
+    const lines: string[] = [`Monthly Report — ${header}`, ""];
+    let totalSeconds = 0;
+    Object.values(taskMap).forEach(({ name, seconds }) => {
+      lines.push(`${name}   ${formatTime(seconds)}   ${formatAmount((seconds / 3600) * rate, currency)}`);
+      totalSeconds += seconds;
+    });
+    lines.push("", `Total   ${formatTime(totalSeconds)}   ${formatAmount((totalSeconds / 3600) * rate, currency)}`);
+
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setShowMoreMenu(false);
   };
 
   return (
@@ -148,6 +175,20 @@ export default function App() {
           />
         </>
       )}
+
+      {showMoreMenu && (
+        <div
+          onClick={() => setShowMoreMenu(false)}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+        />
+      )}
+      <MoreMenu
+        showMenu={showMoreMenu}
+        onToggle={() => setShowMoreMenu(!showMoreMenu)}
+        onCopyReport={handleCopyReport}
+        onHistory={() => alert("History coming soon")}
+        onSettings={() => alert("Settings coming soon")}
+      />
     </div>
   );
 }
