@@ -1,17 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask } from "../db";
 
-function parseDailyGoal(str: string): number {
-  const parts = str.split(":");
-  if (parts.length !== 3) return 0;
-  return (parseInt(parts[0]) || 0) * 3600 + (parseInt(parts[1]) || 0) * 60 + (parseInt(parts[2]) || 0);
-}
-
-function formatDailyGoal(seconds: number): string {
+// Converts dailyGoalSeconds → 6-digit string e.g. 21600 → "060000"
+function goalSecondsToDigits(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+  return [h, m, s].map((v) => String(v).padStart(2, "0")).join("");
+}
+
+// Formats digit buffer for display: "06" → "06:__:__", "0600" → "06:00:__"
+function goalDigitsDisplay(digits: string): string {
+  const p = digits.padEnd(6, "_");
+  return p.slice(0, 2) + ":" + p.slice(2, 4) + ":" + p.slice(4, 6);
+}
+
+// Converts digit buffer → seconds: "060000" → 21600
+function goalDigitsToSeconds(digits: string): number {
+  const p = digits.padEnd(6, "0");
+  return (parseInt(p.slice(0, 2)) || 0) * 3600
+       + (parseInt(p.slice(2, 4)) || 0) * 60
+       + (parseInt(p.slice(4, 6)) || 0);
 }
 
 function currencySymbol(c: string): string {
@@ -62,7 +71,7 @@ const labelStyle: React.CSSProperties = {
 export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
   const [currency, setCurrency] = useState("USD");
   const [hourlyRate, setHourlyRate] = useState("30");
-  const [dailyGoal, setDailyGoal] = useState("06:00:00");
+  const [goalDigits, setGoalDigits] = useState("060000");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -73,7 +82,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       const [s, t] = await Promise.all([getSettings(), getTasks()]);
       setCurrency(s.currency);
       setHourlyRate(String(s.hourlyRate));
-      setDailyGoal(formatDailyGoal(s.dailyGoalSeconds));
+      setGoalDigits(goalSecondsToDigits(s.dailyGoalSeconds));
       setTasks(t);
     })();
   }, []);
@@ -106,7 +115,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
     await saveSettings({
       hourlyRate: Number(hourlyRate),
       currency,
-      dailyGoalSeconds: parseDailyGoal(dailyGoal),
+      dailyGoalSeconds: goalDigitsToSeconds(goalDigits),
     });
     onSave();
   };
@@ -221,10 +230,21 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               <span style={labelStyle}>Daily goal</span>
               <input
                 type="text"
-                placeholder="06:00:00"
-                value={dailyGoal}
-                onChange={(e) => setDailyGoal(e.target.value)}
-                style={{ ...inputBase, width: "100%" }}
+                placeholder="00:00:00"
+                value={goalDigits.length > 0 ? goalDigitsDisplay(goalDigits) : ""}
+                onKeyDown={(e) => {
+                  if (e.key >= "0" && e.key <= "9") {
+                    e.preventDefault();
+                    setGoalDigits((prev) => prev.length < 6 ? prev + e.key : prev);
+                  } else if (e.key === "Backspace") {
+                    e.preventDefault();
+                    setGoalDigits((prev) => prev.slice(0, -1));
+                  } else if (e.key.length === 1) {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={() => {}}
+                style={{ ...inputBase, width: "100%", fontVariantNumeric: "tabular-nums" }}
               />
             </div>
 
