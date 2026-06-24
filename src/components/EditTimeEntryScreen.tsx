@@ -212,6 +212,10 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   WebkitAppearance: "none",
                   outline: "none",
                   cursor: "pointer",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  paddingRight: 12,
                 }}
               >
                 {tasks.map((t) => (
