@@ -49,6 +49,22 @@ function formatDateDisplay(dateValue: string): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
+// Live display while typing: 0-1 digits = bare, 2 digits = "HH:", 3-4 = "HH:MM"
+function digitsToDisplay(digits: string): string {
+  if (digits.length < 2) return digits;
+  if (digits.length === 2) return digits + ":";
+  return digits.slice(0, 2) + ":" + digits.slice(2);
+}
+
+// Commit/normalise: clamp hours ≤23, minutes ≤59, always return "HH:MM"
+function normalizeTimeDisplay(display: string): string {
+  const digits = display.replace(/\D/g, "").slice(0, 4);
+  if (!digits) return "00:00";
+  const h = Math.min(23, parseInt(digits.slice(0, 2)) || 0);
+  const m = Math.min(59, parseInt(digits.slice(2, 4)) || 0);
+  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
 // Compute duration in seconds from two HH:MM display values; 0 if invalid.
 // If end <= start, assumes midnight crossing and adds 24h to end.
 function computeSessionSeconds(dateValue: string, start: string, end: string): number {
@@ -230,22 +246,53 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                 />
               </div>
               {/* Start — separator — End */}
-              <style>{`.time-input::-webkit-calendar-picker-indicator{display:none}`}</style>
               <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0 }}>
                 <input
-                  className="time-input"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
                   value={session.startDisplay}
-                  onChange={(e) => updateSession(i, { startDisplay: e.target.value })}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center", cursor: "pointer" }}
+                  onChange={() => {}}
+                  onKeyDown={(e) => {
+                    if (e.key >= "0" && e.key <= "9") {
+                      e.preventDefault();
+                      const d = session.startDisplay.replace(/\D/g, "");
+                      if (d.length < 4) updateSession(i, { startDisplay: digitsToDisplay(d + e.key) });
+                    } else if (e.key === "Backspace") {
+                      e.preventDefault();
+                      const d = session.startDisplay.replace(/\D/g, "");
+                      updateSession(i, { startDisplay: digitsToDisplay(d.slice(0, -1)) });
+                    } else if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    } else if (e.key.length === 1) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onBlur={() => updateSession(i, { startDisplay: normalizeTimeDisplay(session.startDisplay) })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
                 />
                 <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
                 <input
-                  className="time-input"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
                   value={session.endDisplay}
-                  onChange={(e) => updateSession(i, { endDisplay: e.target.value })}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center", cursor: "pointer" }}
+                  onChange={() => {}}
+                  onKeyDown={(e) => {
+                    if (e.key >= "0" && e.key <= "9") {
+                      e.preventDefault();
+                      const d = session.endDisplay.replace(/\D/g, "");
+                      if (d.length < 4) updateSession(i, { endDisplay: digitsToDisplay(d + e.key) });
+                    } else if (e.key === "Backspace") {
+                      e.preventDefault();
+                      const d = session.endDisplay.replace(/\D/g, "");
+                      updateSession(i, { endDisplay: digitsToDisplay(d.slice(0, -1)) });
+                    } else if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    } else if (e.key.length === 1) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onBlur={() => updateSession(i, { endDisplay: normalizeTimeDisplay(session.endDisplay) })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
                 />
               </div>
             </div>
