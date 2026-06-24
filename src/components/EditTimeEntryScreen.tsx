@@ -196,35 +196,42 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
             )}
 
             {/* Task dropdown */}
-            <div style={{ ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
+            <div style={{ ...fieldBase, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
+              <span style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 16,
+                color: "#181A2C",
+                fontFamily: "'Inter', sans-serif",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                paddingRight: 12,
+                pointerEvents: "none",
+              }}>
+                {tasks.find((t) => t.id === session.taskId)?.name ?? ""}
+              </span>
+              <div style={{ flexShrink: 0, pointerEvents: "none" }}>
+                <ChevronDown />
+              </div>
               <select
                 value={session.taskId}
                 onChange={(e) => updateSession(i, { taskId: e.target.value })}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  border: "none",
-                  background: "none",
-                  fontSize: 16,
-                  color: "#181A2C",
-                  fontFamily: "'Inter', sans-serif",
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                  outline: "none",
+                  position: "absolute",
+                  inset: 0,
+                  opacity: 0,
                   cursor: "pointer",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  paddingRight: 12,
+                  width: "100%",
+                  height: "100%",
+                  fontSize: 16,
+                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 {tasks.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
-              <div style={{ flexShrink: 0, pointerEvents: "none" }}>
-                <ChevronDown />
-              </div>
             </div>
 
             {/* Date + start — end */}
