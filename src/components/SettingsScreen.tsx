@@ -83,48 +83,63 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   return (
     <div style={{
       width: 440,
+      minHeight: 520,
       background: "white",
       borderRadius: 16,
+      position: "relative",
       overflow: "hidden",
-      display: "flex",
-      flexDirection: "column",
-      padding: "64px 24px 96px",
     }}>
+
+      {/* Titlebar */}
+      <div style={{
+        height: 40,
+        borderBottom: "1px solid #E3E5EA",
+      }} />
+
+      {/* Heading */}
       <span style={{
+        position: "absolute",
+        top: 64,
+        left: 24,
         fontSize: 20,
         fontWeight: 500,
         color: "#181A2C",
         fontFamily: "'Inter', sans-serif",
-        marginBottom: 24,
+        lineHeight: "28px",
       }}>
         Settings
       </span>
 
       {/* Tracking block */}
       <div style={{
+        position: "absolute",
+        top: 100,
+        left: 24,
+        width: 392,
         background: "#F6F6F6",
         borderRadius: 12,
         padding: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        marginBottom: 12,
+        boxSizing: "border-box",
       }}>
-        <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
+        <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}>
           Tracking
         </span>
 
         <div style={{ display: "flex", gap: 8 }}>
+
           {/* Currency */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: "#181A2C", marginBottom: 4, fontFamily: "'Inter', sans-serif" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
               Currency
-            </div>
+            </span>
             <div style={{
+              height: 48,
               background: "white",
               border: "1px solid #E3E5EA",
               borderRadius: 8,
-              height: 48,
               padding: "0 16px",
               display: "flex",
               alignItems: "center",
@@ -154,15 +169,15 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
           </div>
 
           {/* Hourly rate */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: "#181A2C", marginBottom: 4, fontFamily: "'Inter', sans-serif" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
               Hourly rate
-            </div>
+            </span>
             <div style={{
+              height: 48,
               background: "white",
               border: "1px solid #E3E5EA",
               borderRadius: 8,
-              height: 48,
               padding: "0 16px",
               display: "flex",
               alignItems: "center",
@@ -183,27 +198,29 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   width: 0,
                 }}
               />
-              <span style={{ fontSize: 16, color: "#908F8F" }}>{currencySymbol(currency)}</span>
+              <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
+                {currencySymbol(currency)}
+              </span>
             </div>
           </div>
 
           {/* Daily goal */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: "#181A2C", marginBottom: 4, fontFamily: "'Inter', sans-serif" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
               Daily goal
-            </div>
+            </span>
             <input
               type="text"
               placeholder="06:00:00"
               value={dailyGoal}
               onChange={(e) => setDailyGoal(e.target.value)}
               style={{
+                height: 48,
                 width: "100%",
                 background: "white",
                 border: "1px solid #E3E5EA",
                 borderRadius: 8,
-                height: 48,
-                padding: "0 16px",
+                padding: "12px 16px",
                 fontSize: 16,
                 color: "#181A2C",
                 fontFamily: "'DM Sans', sans-serif",
@@ -212,26 +229,34 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               }}
             />
           </div>
+
         </div>
       </div>
 
       {/* Tasks block */}
       <div style={{
+        position: "absolute",
+        top: 236,
+        left: 24,
+        width: 392,
         background: "#F6F6F6",
         borderRadius: 12,
         padding: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
+        boxSizing: "border-box",
       }}>
+
+        {/* Tasks header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
+          <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}>
             Tasks
           </span>
           {!isAddingTask ? (
             <span
               onClick={() => setIsAddingTask(true)}
-              style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
+              style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
             >
               Add
             </span>
@@ -239,13 +264,13 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
             <div style={{ display: "flex", gap: 20 }}>
               <span
                 onClick={() => { setIsAddingTask(false); setNewTaskName(""); }}
-                style={{ fontSize: 16, fontWeight: 500, color: "#FF5429", cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
+                style={{ fontSize: 16, fontWeight: 500, color: "#FF5429", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
               >
                 Cancel
               </span>
               <span
                 onClick={handleCreateTask}
-                style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
+                style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
               >
                 Save
               </span>
@@ -253,10 +278,12 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
           )}
         </div>
 
+        {/* New task input */}
         {isAddingTask && (
           <input
             autoFocus
             type="text"
+            placeholder="Task name"
             value={newTaskName}
             onChange={(e) => setNewTaskName(e.target.value)}
             onKeyDown={(e) => {
@@ -264,22 +291,22 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               if (e.key === "Escape") { setIsAddingTask(false); setNewTaskName(""); }
             }}
             style={{
+              height: 48,
               width: "100%",
               background: "white",
               border: "1px solid #E3E5EA",
               borderRadius: 8,
-              height: 48,
-              padding: "0 16px",
+              padding: "12px 16px",
               fontSize: 16,
               color: "#181A2C",
               fontFamily: "'DM Sans', sans-serif",
               outline: "none",
               boxSizing: "border-box",
-              marginBottom: 8,
             }}
           />
         )}
 
+        {/* Task list */}
         {tasks.map((task) => (
           <div
             key={task.id}
@@ -294,7 +321,8 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               fontSize: 16,
               color: "#181A2C",
               fontFamily: "'Inter', sans-serif",
-              width: 304,
+              lineHeight: "24px",
+              maxWidth: 304,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -303,35 +331,35 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
             </span>
             <button
               onClick={() => handleDeleteTask(task.id)}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
             >
               <TrashIcon />
             </button>
           </div>
         ))}
+
       </div>
 
-      {/* Bottom buttons */}
+      {/* Cancel / Save buttons */}
       <div style={{
-        marginTop: "auto",
+        position: "absolute",
+        bottom: 24,
+        right: 24,
         display: "flex",
-        justifyContent: "flex-end",
         gap: 12,
-        padding: "24px 24px 0",
       }}>
         <button
           onClick={onClose}
           style={{
+            width: 96,
+            height: 48,
             background: "#F6F6F6",
             borderRadius: 8,
-            height: 48,
-            padding: "0 16px",
-            width: 96,
+            border: "none",
             fontSize: 16,
             color: "#181A2C",
-            border: "none",
-            cursor: "pointer",
             fontFamily: "'DM Sans', sans-serif",
+            cursor: "pointer",
           }}
         >
           Cancel
@@ -339,22 +367,22 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
         <button
           onClick={handleSave}
           style={{
+            width: 96,
+            height: 48,
             background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)",
             boxShadow: "0px 4px 10px rgba(33,152,81,0.3)",
             borderRadius: 8,
-            height: 48,
-            padding: "0 16px",
-            width: 96,
+            border: "none",
             fontSize: 16,
             color: "white",
-            border: "none",
-            cursor: "pointer",
             fontFamily: "'DM Sans', sans-serif",
+            cursor: "pointer",
           }}
         >
           Save
         </button>
       </div>
+
     </div>
   );
 }
