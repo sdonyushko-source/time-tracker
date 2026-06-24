@@ -2,6 +2,11 @@ import Database from "@tauri-apps/plugin-sql";
 
 let _db: Database | null = null;
 
+async function getDB(): Promise<Database> {
+  if (!_db) await initDB();
+  return _db!;
+}
+
 export interface Settings {
   hourlyRate: number;
   currency: string;
@@ -93,11 +98,12 @@ export async function initDB(): Promise<void> {
 }
 
 export async function getSettings(): Promise<Settings> {
-  const rows = await _db!.select<Settings[]>(
+  const db = await getDB();
+  const rows = await db.select<Settings[]>(
     "SELECT hourlyRate, currency, dailyGoalSeconds FROM settings WHERE id = 1"
   );
   if (!rows.length) {
-    await _db!.execute(
+    await db.execute(
       "INSERT OR IGNORE INTO settings (id, hourlyRate, currency, dailyGoalSeconds) VALUES (1, 30, 'USD', 21600)"
     );
     return { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
@@ -106,34 +112,39 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function saveSettings(s: Settings): Promise<void> {
-  await _db!.execute(
+  const db = await getDB();
+  await db.execute(
     "INSERT OR REPLACE INTO settings (id, hourlyRate, currency, dailyGoalSeconds) VALUES (1, ?, ?, ?)",
     [s.hourlyRate, s.currency, s.dailyGoalSeconds]
   );
 }
 
 export async function getTasks(): Promise<Task[]> {
-  return _db!.select<Task[]>(
+  const db = await getDB();
+  return db.select<Task[]>(
     "SELECT id, name, archived, createdAt FROM tasks WHERE archived = 0 ORDER BY createdAt DESC"
   );
 }
 
 export async function getTodayEntries(): Promise<TimeEntry[]> {
-  return _db!.select<TimeEntry[]>(
+  const db = await getDB();
+  return db.select<TimeEntry[]>(
     "SELECT * FROM time_entries WHERE date = ? ORDER BY startTime DESC",
     [localDate()]
   );
 }
 
 export async function getWeekEntries(): Promise<TimeEntry[]> {
-  return _db!.select<TimeEntry[]>(
+  const db = await getDB();
+  return db.select<TimeEntry[]>(
     "SELECT * FROM time_entries WHERE date >= ? ORDER BY startTime DESC",
     [weekStart()]
   );
 }
 
 export async function getMonthEntries(): Promise<TimeEntry[]> {
-  return _db!.select<TimeEntry[]>(
+  const db = await getDB();
+  return db.select<TimeEntry[]>(
     "SELECT * FROM time_entries WHERE date >= ? ORDER BY startTime DESC",
     [monthStart()]
   );
@@ -145,9 +156,10 @@ export async function startEntry(
   hourlyRate: number,
   currency: string
 ): Promise<string> {
+  const db = await getDB();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  await _db!.execute(
+  await db.execute(
     `INSERT INTO time_entries
        (id, taskId, taskNameSnapshot, date, startTime, endTime, durationSeconds,
         hourlyRateSnapshot, currencySnapshot, createdAt, updatedAt)
@@ -158,9 +170,10 @@ export async function startEntry(
 }
 
 export async function createTask(name: string): Promise<string> {
+  const db = await getDB();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  await _db!.execute(
+  await db.execute(
     "INSERT INTO tasks (id, name, archived, createdAt) VALUES (?, ?, 0, ?)",
     [id, name, now]
   );
@@ -168,7 +181,8 @@ export async function createTask(name: string): Promise<string> {
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  await _db!.execute("UPDATE tasks SET archived = 1 WHERE id = ?", [id]);
+  const db = await getDB();
+  await db.execute("UPDATE tasks SET archived = 1 WHERE id = ?", [id]);
 }
 
 export async function stopEntry(
@@ -176,7 +190,8 @@ export async function stopEntry(
   endTime: string,
   durationSeconds: number
 ): Promise<void> {
-  await _db!.execute(
+  const db = await getDB();
+  await db.execute(
     "UPDATE time_entries SET endTime = ?, durationSeconds = ?, updatedAt = ? WHERE id = ?",
     [endTime, durationSeconds, new Date().toISOString(), id]
   );
