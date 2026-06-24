@@ -232,7 +232,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
                   style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
                 />
-                <div style={{ width: 8, height: 1, backgroundColor: "#E3E5EA", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+                <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
                 <input
                   type="text"
                   inputMode="numeric"
