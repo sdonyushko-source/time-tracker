@@ -60,6 +60,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const newTaskInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -352,7 +353,11 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                 />
               ) : (
                 /* Normal row */
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", position: "relative" }}>
+                <div
+                  onMouseEnter={() => setHoveredTaskId(task.id)}
+                  onMouseLeave={() => setHoveredTaskId(null)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", position: "relative" }}
+                >
                   <span style={{
                     fontFamily: "'Inter', sans-serif",
                     fontSize: 16,
@@ -367,7 +372,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   </span>
                   <button
                     onClick={() => setOpenMenuId(openMenuId === task.id ? null : task.id)}
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, opacity: hoveredTaskId === task.id || openMenuId === task.id ? 1 : 0 }}
                   >
                     <ThreeDotsIcon />
                   </button>
