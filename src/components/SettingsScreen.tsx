@@ -80,11 +80,15 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   const handleSaveTask = async () => {
     const name = newTaskName.trim();
     if (!name) return;
-    await createTask(name);
-    const updated = await getTasks();
-    setTasks(updated);
-    setNewTaskName("");
-    setIsAddingTask(false);
+    try {
+      await createTask(name);
+      const updated = await getTasks();
+      setTasks(updated);
+      setNewTaskName("");
+      setIsAddingTask(false);
+    } catch (err) {
+      console.error("createTask failed:", err);
+    }
   };
 
   const handleCancelTask = () => {
@@ -116,13 +120,6 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       display: "flex",
       flexDirection: "column",
     }}>
-      {/* Remove spinners on number inputs globally for this screen */}
-      <style>{`
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-      `}</style>
-
       {/* Titlebar */}
       <div style={{ height: 40, borderBottom: "1px solid #E3E5EA", flexShrink: 0 }} />
 
@@ -200,7 +197,8 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                 padding: "0 16px",
               }}>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={hourlyRate}
                   onChange={(e) => setHourlyRate(e.target.value)}
                   style={{
