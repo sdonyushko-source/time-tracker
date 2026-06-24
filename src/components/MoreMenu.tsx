@@ -1,25 +1,28 @@
 import { useState } from "react";
 
 const CopyIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <rect x="5" y="1" width="10" height="10" rx="2" stroke="#181A2C" strokeWidth="1.5" />
-    <rect x="1" y="5" width="10" height="10" rx="2" fill="white" stroke="#181A2C" strokeWidth="1.5" />
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <rect x="8" y="8" width="13" height="13" rx="2" stroke="#181A2C" strokeWidth="1.5"/>
+    <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 const HistoryIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <circle cx="8" cy="8" r="6.5" stroke="#181A2C" strokeWidth="1.5" />
-    <path d="M8 4.5V8L10.5 10" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="#181A2C" strokeWidth="1.5"/>
+    <path d="M12 7v5l3 3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 12H1m3.22-6.78L3 4M12 1V3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 const SettingsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M2 4H14M2 8H14M2 12H14" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" />
-    <circle cx="5" cy="4" r="1.5" fill="white" stroke="#181A2C" strokeWidth="1.5" />
-    <circle cx="10" cy="8" r="1.5" fill="white" stroke="#181A2C" strokeWidth="1.5" />
-    <circle cx="6" cy="12" r="1.5" fill="white" stroke="#181A2C" strokeWidth="1.5" />
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <line x1="3" y1="6" x2="21" y2="6" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="3" y1="12" x2="21" y2="12" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="3" y1="18" x2="21" y2="18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="7" cy="6" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
+    <circle cx="17" cy="12" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
+    <circle cx="10" cy="18" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
   </svg>
 );
 
