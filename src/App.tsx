@@ -131,7 +131,7 @@ export default function App() {
   if (screen === "settings") {
     return (
       <SettingsScreen
-        onClose={() => setScreen("timer")}
+        onClose={() => { setScreen("timer"); loadData(); }}
         onSave={() => { setScreen("timer"); loadData(); }}
       />
     );

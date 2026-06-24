@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask } from "../db";
 
 function parseDailyGoal(str: string): number {
@@ -66,6 +66,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
+  const newTaskInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -78,7 +79,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   }, []);
 
   const handleSaveTask = async () => {
-    const name = newTaskName.trim();
+    const name = (newTaskInputRef.current?.value ?? newTaskName).trim();
     if (!name) return;
     try {
       await createTask(name);
@@ -273,6 +274,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
           {/* New task input */}
           {isAddingTask && (
             <input
+              ref={newTaskInputRef}
               autoFocus
               type="text"
               placeholder="Task name"
