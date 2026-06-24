@@ -189,6 +189,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   inputMode="decimal"
                   value={hourlyRate}
                   onChange={(e) => setHourlyRate(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{
                     flex: 1,
                     width: 0,

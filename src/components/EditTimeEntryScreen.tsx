@@ -243,6 +243,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   placeholder="00:00"
                   value={session.startDisplay}
                   onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
                 />
                 <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
@@ -252,6 +253,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   placeholder="00:00"
                   value={session.endDisplay}
                   onChange={(e) => updateSession(i, { endDisplay: maskTime(e.target.value) })}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
                 />
               </div>
