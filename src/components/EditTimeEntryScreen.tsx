@@ -63,12 +63,6 @@ function computeSessionSeconds(dateValue: string, start: string, end: string): n
   }
 }
 
-// Strips non-digits, formats up to 4 digits as HH:MM
-function maskTime(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return digits.slice(0, 2) + ":" + digits.slice(2);
-}
 
 const TrashIcon = ({ color }: { color: string }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -236,25 +230,22 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                 />
               </div>
               {/* Start — separator — End */}
+              <style>{`.time-input::-webkit-calendar-picker-indicator{display:none}`}</style>
               <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0 }}>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00"
+                  className="time-input"
+                  type="time"
                   value={session.startDisplay}
-                  onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
+                  onChange={(e) => updateSession(i, { startDisplay: e.target.value })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center", cursor: "pointer" }}
                 />
                 <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00"
+                  className="time-input"
+                  type="time"
                   value={session.endDisplay}
-                  onChange={(e) => updateSession(i, { endDisplay: maskTime(e.target.value) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
+                  onChange={(e) => updateSession(i, { endDisplay: e.target.value })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center", cursor: "pointer" }}
                 />
               </div>
             </div>
