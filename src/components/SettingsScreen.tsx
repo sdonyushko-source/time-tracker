@@ -120,9 +120,6 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       display: "flex",
       flexDirection: "column",
     }}>
-      {/* Titlebar */}
-      <div style={{ height: 40, borderBottom: "1px solid #E3E5EA", flexShrink: 0 }} />
-
       {/* Scrollable content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
