@@ -49,6 +49,20 @@ function formatDateDisplay(dateValue: string): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
+// Compute duration in seconds from two HH:MM display values; 0 if invalid
+function computeSessionSeconds(dateValue: string, start: string, end: string): number {
+  if (!dateValue || start.length < 5 || end.length < 5) return 0;
+  try {
+    const diff = Math.round(
+      (new Date(displayToISO(dateValue, end)).getTime() -
+       new Date(displayToISO(dateValue, start)).getTime()) / 1000
+    );
+    return diff > 0 ? diff : 0;
+  } catch {
+    return 0;
+  }
+}
+
 // Strips non-digits, formats up to 4 digits as HH:MM
 function maskTime(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 4);
@@ -87,7 +101,6 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
     }))
   );
 
-  const totalSeconds = sessions.reduce((s, sess) => s + sess.durationSeconds, 0);
   const isMultiple = sessions.length > 1;
 
   const updateSession = (index: number, patch: Partial<SessionEdit>) => {
@@ -144,12 +157,9 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: 392 }}>
+        <div style={{ width: 392 }}>
           <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
             Edit time entry
-          </span>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-            {formatTime(totalSeconds)}
           </span>
         </div>
 
@@ -165,7 +175,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-                    {formatTime(session.durationSeconds)}
+                    {formatTime(computeSessionSeconds(session.dateValue, session.startDisplay, session.endDisplay))}
                   </span>
                   <button
                     onClick={() => handleDeleteSession(i)}
