@@ -20,7 +20,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
     taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
     if (!e.endTime) taskMap[e.taskId].active = true;
   });
-  const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
+  const tasks = Object.entries(taskMap).filter(([, t]) => !t.active).map(([id, t]) => ({ id, ...t }));
 
   return (
     <>
