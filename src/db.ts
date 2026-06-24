@@ -185,6 +185,11 @@ export async function deleteTask(id: string): Promise<void> {
   await db.execute("UPDATE tasks SET archived = 1 WHERE id = ?", [id]);
 }
 
+export async function renameTask(id: string, name: string): Promise<void> {
+  const db = await getDB();
+  await db.execute("UPDATE tasks SET name = ? WHERE id = ?", [name, id]);
+}
+
 export async function stopEntry(
   id: string,
   endTime: string,

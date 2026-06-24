@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask } from "../db";
+import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask, renameTask } from "../db";
 
 
 function currencySymbol(c: string): string {
@@ -9,9 +9,11 @@ function currencySymbol(c: string): string {
   return c;
 }
 
-const TrashIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M18 9.5L17.3448 16.3792C17.181 18.0994 17.0991 18.9595 16.5269 19.4797C15.9548 20 15.0908 20 13.3629 20H10.6371C8.90921 20 8.04524 20 7.47307 19.4797C6.9009 18.9595 6.81899 18.0994 6.65517 16.3792L6 9.5M5 7H9M19 7H15M15 7C15 6.06812 15 5.60218 14.8478 5.23463C14.6448 4.74458 14.2554 4.35523 13.7654 4.15224C13.3978 4 12.9319 4 12 4C11.0681 4 10.6022 4 10.2346 4.15224C9.74458 4.35523 9.35523 4.74458 9.15224 5.23463C9 5.60218 9 6.06812 9 7M15 7L9 7" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+const ThreeDotsIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="5" cy="12" r="1.5" fill="#181A2C"/>
+    <circle cx="12" cy="12" r="1.5" fill="#181A2C"/>
+    <circle cx="19" cy="12" r="1.5" fill="#181A2C"/>
   </svg>
 );
 
@@ -55,6 +57,9 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const newTaskInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,8 +93,18 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   };
 
   const handleDeleteTask = async (id: string) => {
+    if (!window.confirm("Delete this task?")) return;
     await deleteTask(id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleRenameTask = async (id: string) => {
+    const name = renameValue.trim();
+    if (!name) return;
+    await renameTask(id, name);
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, name } : t));
+    setRenamingId(null);
+    setRenameValue("");
   };
 
   const handleSave = async () => {
@@ -306,28 +321,97 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
           {/* Task list */}
           {tasks.map((task) => (
-            <div
-              key={task.id}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}
-            >
-              <span style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: 16,
-                color: "#181A2C",
-                lineHeight: "24px",
-                maxWidth: 304,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}>
-                {task.name}
-              </span>
-              <button
-                onClick={() => handleDeleteTask(task.id)}
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
-              >
-                <TrashIcon />
-              </button>
+            <div key={task.id}>
+              {renamingId === task.id ? (
+                /* Rename inline UI */
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRenameTask(task.id);
+                      if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
+                    }}
+                    style={{ ...inputBase, width: "100%" }}
+                  />
+                  <div style={{ display: "flex", gap: 20, justifyContent: "flex-end" }}>
+                    <span
+                      onClick={() => { setRenamingId(null); setRenameValue(""); }}
+                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </span>
+                    <span
+                      onClick={() => handleRenameTask(task.id)}
+                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+                    >
+                      Save
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* Normal row */
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", position: "relative" }}>
+                  <span style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 16,
+                    color: "#181A2C",
+                    lineHeight: "24px",
+                    maxWidth: 304,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {task.name}
+                  </span>
+                  <button
+                    onClick={() => setOpenMenuId(openMenuId === task.id ? null : task.id)}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
+                  >
+                    <ThreeDotsIcon />
+                  </button>
+                  {openMenuId === task.id && (
+                    <>
+                      <div
+                        onClick={() => setOpenMenuId(null)}
+                        style={{ position: "fixed", inset: 0, zIndex: 98 }}
+                      />
+                      <div style={{
+                        position: "absolute",
+                        top: 36,
+                        right: 0,
+                        background: "white",
+                        borderRadius: 8,
+                        padding: 8,
+                        boxShadow: "0px 8px 12px rgba(24,26,44,0.12)",
+                        zIndex: 99,
+                        display: "flex",
+                        flexDirection: "column",
+                        minWidth: 120,
+                      }}>
+                        <div
+                          onClick={() => { setOpenMenuId(null); setRenamingId(task.id); setRenameValue(task.name); }}
+                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#181A2C" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F6F6F6")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Rename
+                        </div>
+                        <div
+                          onClick={() => { setOpenMenuId(null); handleDeleteTask(task.id); }}
+                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#FF5429" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F6F6F6")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Delete
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
