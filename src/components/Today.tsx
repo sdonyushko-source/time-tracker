@@ -5,9 +5,10 @@ interface TodayProps {
   entries: TimeEntry[];
   settings: Settings;
   dailyGoalSeconds: number;
+  onTaskClick?: (taskId: string) => void;
 }
 
-export default function Today({ entries, settings: _settings, dailyGoalSeconds }: TodayProps) {
+export default function Today({ entries, settings: _settings, dailyGoalSeconds, onTaskClick }: TodayProps) {
   const totalSeconds = entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
   const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
 
@@ -84,6 +85,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
         {tasks.map((task) => (
           <div
             key={task.id}
+            onClick={() => onTaskClick?.(task.id)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -92,6 +94,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
               borderRadius: 8,
               background: "white",
               width: 376,
+              cursor: onTaskClick ? "pointer" : "default",
             }}
           >
             <div style={{

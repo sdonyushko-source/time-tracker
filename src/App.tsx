@@ -7,6 +7,7 @@ import Summary from "./components/Summary";
 import TaskPicker from "./components/TaskPicker";
 import MoreMenu from "./components/MoreMenu";
 import SettingsScreen from "./components/SettingsScreen";
+import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
 import { formatTime, formatAmount } from "./utils";
 import {
   Settings, Task, TimeEntry,
@@ -15,7 +16,7 @@ import {
   startEntry, stopEntry,
 } from "./db";
 
-type Screen = "timer" | "settings";
+type Screen = "timer" | "settings" | "editTimeEntry";
 
 const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
@@ -29,6 +30,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [selectedEditTaskId, setSelectedEditTaskId] = useState("");
   const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
@@ -60,10 +62,14 @@ export default function App() {
     const appWindow = getCurrentWindow();
     if (screen === "settings") {
       appWindow.setSize(new LogicalSize(440, 520));
+    } else if (screen === "editTimeEntry") {
+      const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId).length;
+      const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
+      appWindow.setSize(new LogicalSize(440, h));
     } else {
       appWindow.setSize(new LogicalSize(440, isExpanded ? 520 : 120));
     }
-  }, [screen, isExpanded]);
+  }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
 
   const refresh = useCallback(async () => {
     const [today, week, month] = await Promise.all([
@@ -138,6 +144,16 @@ export default function App() {
     );
   }
 
+  if (screen === "editTimeEntry") {
+    return (
+      <EditTimeEntryScreen
+        entries={todayEntries.filter((e) => e.taskId === selectedEditTaskId)}
+        tasks={tasks}
+        onClose={() => { setScreen("timer"); loadData(); }}
+      />
+    );
+  }
+
   return (
     <div style={{
       width: 440,
@@ -167,6 +183,7 @@ export default function App() {
               entries={todayEntries}
               settings={settings}
               dailyGoalSeconds={settings.dailyGoalSeconds}
+              onTaskClick={(taskId) => { setSelectedEditTaskId(taskId); setScreen("editTimeEntry"); }}
             />
             <Summary
               todayEntries={todayEntries}
