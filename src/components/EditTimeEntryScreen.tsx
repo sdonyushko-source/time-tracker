@@ -222,26 +222,26 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
                 />
               </div>
-              {/* Start time with HH:MM mask */}
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="00:00"
-                value={session.startDisplay}
-                onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
-                style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
-              />
-              {/* Separator */}
-              <div style={{ width: 8, height: 1, background: "#E3E5EA", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
-              {/* End time with HH:MM mask */}
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="00:00"
-                value={session.endDisplay}
-                onChange={(e) => updateSession(i, { endDisplay: maskTime(e.target.value) })}
-                style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
-              />
+              {/* Start — separator — End */}
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00"
+                  value={session.startDisplay}
+                  onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
+                />
+                <div style={{ width: 8, height: 1, backgroundColor: "#E3E5EA", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00"
+                  value={session.endDisplay}
+                  onChange={(e) => updateSession(i, { endDisplay: maskTime(e.target.value) })}
+                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 16px", textAlign: "center" }}
+                />
+              </div>
             </div>
 
           </div>
