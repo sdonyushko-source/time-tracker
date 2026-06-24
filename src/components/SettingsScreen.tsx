@@ -1,27 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask } from "../db";
 
-// Converts dailyGoalSeconds → 6-digit string e.g. 21600 → "060000"
-function goalSecondsToDigits(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return [h, m, s].map((v) => String(v).padStart(2, "0")).join("");
-}
-
-// Formats digit buffer for display: "06" → "06:__:__", "0600" → "06:00:__"
-function goalDigitsDisplay(digits: string): string {
-  const p = digits.padEnd(6, "_");
-  return p.slice(0, 2) + ":" + p.slice(2, 4) + ":" + p.slice(4, 6);
-}
-
-// Converts digit buffer → seconds: "060000" → 21600
-function goalDigitsToSeconds(digits: string): number {
-  const p = digits.padEnd(6, "0");
-  return (parseInt(p.slice(0, 2)) || 0) * 3600
-       + (parseInt(p.slice(2, 4)) || 0) * 60
-       + (parseInt(p.slice(4, 6)) || 0);
-}
 
 function currencySymbol(c: string): string {
   if (c === "USD") return "$";
@@ -71,7 +50,9 @@ const labelStyle: React.CSSProperties = {
 export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
   const [currency, setCurrency] = useState("USD");
   const [hourlyRate, setHourlyRate] = useState("30");
-  const [goalDigits, setGoalDigits] = useState("060000");
+  const [goalH, setGoalH] = useState("6");
+  const [goalM, setGoalM] = useState("0");
+  const [goalS, setGoalS] = useState("0");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -82,7 +63,9 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       const [s, t] = await Promise.all([getSettings(), getTasks()]);
       setCurrency(s.currency);
       setHourlyRate(String(s.hourlyRate));
-      setGoalDigits(goalSecondsToDigits(s.dailyGoalSeconds));
+      setGoalH(String(Math.floor(s.dailyGoalSeconds / 3600)));
+      setGoalM(String(Math.floor((s.dailyGoalSeconds % 3600) / 60)));
+      setGoalS(String(s.dailyGoalSeconds % 60));
       setTasks(t);
     })();
   }, []);
@@ -115,7 +98,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
     await saveSettings({
       hourlyRate: Number(hourlyRate),
       currency,
-      dailyGoalSeconds: goalDigitsToSeconds(goalDigits),
+      dailyGoalSeconds: (parseInt(goalH) || 0) * 3600 + (parseInt(goalM) || 0) * 60 + (parseInt(goalS) || 0),
     });
     onSave();
   };
@@ -227,25 +210,49 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
             {/* Daily goal */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <style>{`.goal-num::-webkit-inner-spin-button,.goal-num::-webkit-outer-spin-button{display:none}`}</style>
               <span style={labelStyle}>Daily goal</span>
-              <input
-                type="text"
-                placeholder="00:00:00"
-                value={goalDigits.length > 0 ? goalDigitsDisplay(goalDigits) : ""}
-                onKeyDown={(e) => {
-                  if (e.key >= "0" && e.key <= "9") {
-                    e.preventDefault();
-                    setGoalDigits((prev) => prev.length < 6 ? prev + e.key : prev);
-                  } else if (e.key === "Backspace") {
-                    e.preventDefault();
-                    setGoalDigits((prev) => prev.slice(0, -1));
-                  } else if (e.key.length === 1) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={() => {}}
-                style={{ ...inputBase, width: "100%", fontVariantNumeric: "tabular-nums" }}
-              />
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                height: 48,
+                background: "white",
+                border: "1px solid #E3E5EA",
+                borderRadius: 8,
+                padding: "12px 16px",
+                boxSizing: "border-box",
+              }}>
+                <input
+                  className="goal-num"
+                  type="number"
+                  min={0}
+                  max={99}
+                  value={goalH}
+                  onChange={(e) => setGoalH(e.target.value)}
+                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
+                />
+                <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
+                <input
+                  className="goal-num"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={goalM}
+                  onChange={(e) => setGoalM(e.target.value)}
+                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
+                />
+                <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
+                <input
+                  className="goal-num"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={goalS}
+                  onChange={(e) => setGoalS(e.target.value)}
+                  style={{ width: 40, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
+                />
+              </div>
             </div>
 
           </div>
