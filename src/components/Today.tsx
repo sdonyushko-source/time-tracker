@@ -85,8 +85,8 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
         </div>
       </div>
 
-      <div className="today-task-list" style={{ display: "flex", flexDirection: "column", width: "100%", maxHeight: 168, paddingBottom: 8, overflowY: "auto", scrollbarWidth: "none" }}>
-        {tasks.map((task) => (
+      <div className="today-task-list" style={{ display: "flex", flexDirection: "column", width: "100%", maxHeight: 160, overflowY: "auto", scrollbarWidth: "none" }}>
+        {tasks.map((task, i) => (
           <div
             key={task.id}
             onClick={() => onTaskClick?.(task.id)}
@@ -99,6 +99,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
               background: "white",
               width: 376,
               cursor: onTaskClick ? "pointer" : "default",
+              marginBottom: i === tasks.length - 1 ? 8 : 0,
             }}
           >
             <div style={{
