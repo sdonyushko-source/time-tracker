@@ -38,6 +38,27 @@ interface SettingsScreenProps {
   onSave: () => void;
 }
 
+const inputBase: React.CSSProperties = {
+  height: 48,
+  background: "white",
+  border: "1px solid #E3E5EA",
+  borderRadius: 8,
+  padding: "12px 16px",
+  fontSize: 16,
+  color: "#181A2C",
+  fontFamily: "'DM Sans', sans-serif",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontFamily: "'Inter', sans-serif",
+  fontSize: 14,
+  fontWeight: 400,
+  color: "#181A2C",
+  lineHeight: "20px",
+};
+
 export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
   const [currency, setCurrency] = useState("USD");
   const [hourlyRate, setHourlyRate] = useState("30");
@@ -56,14 +77,19 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
     })();
   }, []);
 
-  const handleCreateTask = async () => {
+  const handleSaveTask = async () => {
     const name = newTaskName.trim();
     if (!name) return;
     await createTask(name);
     const updated = await getTasks();
     setTasks(updated);
-    setIsAddingTask(false);
     setNewTaskName("");
+    setIsAddingTask(false);
+  };
+
+  const handleCancelTask = () => {
+    setNewTaskName("");
+    setIsAddingTask(false);
   };
 
   const handleDeleteTask = async (id: string) => {
@@ -86,303 +112,259 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       minHeight: 520,
       background: "white",
       borderRadius: 16,
-      position: "relative",
       overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
     }}>
+      {/* Remove spinners on number inputs globally for this screen */}
+      <style>{`
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+      `}</style>
 
       {/* Titlebar */}
-      <div style={{
-        height: 40,
-        borderBottom: "1px solid #E3E5EA",
-      }} />
+      <div style={{ height: 40, borderBottom: "1px solid #E3E5EA", flexShrink: 0 }} />
 
-      {/* Heading */}
-      <span style={{
-        position: "absolute",
-        top: 64,
-        left: 24,
-        fontSize: 20,
-        fontWeight: 500,
-        color: "#181A2C",
-        fontFamily: "'Inter', sans-serif",
-        lineHeight: "28px",
-      }}>
-        Settings
-      </span>
+      {/* Scrollable content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
-      {/* Tracking block */}
-      <div style={{
-        position: "absolute",
-        top: 100,
-        left: 24,
-        width: 392,
-        background: "#F6F6F6",
-        borderRadius: 12,
-        padding: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        boxSizing: "border-box",
-      }}>
-        <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}>
-          Tracking
+        {/* Heading */}
+        <span style={{
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 500,
+          fontSize: 20,
+          lineHeight: "24px",
+          color: "#181A2C",
+        }}>
+          Settings
         </span>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        {/* ── Tracking block ── */}
+        <div style={{
+          marginTop: 12,
+          background: "#F6F6F6",
+          borderRadius: 12,
+          padding: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+            Tracking
+          </span>
 
-          {/* Currency */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
-              Currency
-            </span>
-            <div style={{
-              height: 48,
-              background: "white",
-              border: "1px solid #E3E5EA",
-              borderRadius: 8,
-              padding: "0 16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                style={{
-                  flex: 1,
-                  border: "none",
-                  background: "none",
-                  fontSize: 16,
-                  color: "#181A2C",
-                  fontFamily: "'DM Sans', sans-serif",
-                  appearance: "none",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="RUB">RUB</option>
-              </select>
-              <ChevronDown />
+          <div style={{ display: "flex", flexDirection: "row", gap: 8 }}>
+
+            {/* Currency */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={labelStyle}>Currency</span>
+              <div style={{
+                ...inputBase,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 16px",
+              }}>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    background: "none",
+                    fontSize: 16,
+                    color: "#181A2C",
+                    fontFamily: "'DM Sans', sans-serif",
+                    appearance: "none",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="RUB">RUB</option>
+                </select>
+                <ChevronDown />
+              </div>
             </div>
-          </div>
 
-          {/* Hourly rate */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
-              Hourly rate
-            </span>
-            <div style={{
-              height: 48,
-              background: "white",
-              border: "1px solid #E3E5EA",
-              borderRadius: 8,
-              padding: "0 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}>
+            {/* Hourly rate */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={labelStyle}>Hourly rate</span>
+              <div style={{
+                ...inputBase,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0 16px",
+              }}>
+                <input
+                  type="number"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(e.target.value)}
+                  style={{
+                    flex: 1,
+                    width: 0,
+                    border: "none",
+                    background: "none",
+                    fontSize: 16,
+                    color: "#181A2C",
+                    fontFamily: "'DM Sans', sans-serif",
+                    outline: "none",
+                  }}
+                />
+                <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
+                  {currencySymbol(currency)}
+                </span>
+              </div>
+            </div>
+
+            {/* Daily goal */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={labelStyle}>Daily goal</span>
               <input
-                type="number"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(e.target.value)}
-                style={{
-                  flex: 1,
-                  border: "none",
-                  background: "none",
-                  fontSize: 16,
-                  color: "#181A2C",
-                  fontFamily: "'DM Sans', sans-serif",
-                  outline: "none",
-                  width: 0,
-                }}
+                type="text"
+                placeholder="06:00:00"
+                value={dailyGoal}
+                onChange={(e) => setDailyGoal(e.target.value)}
+                style={{ ...inputBase, width: "100%" }}
               />
-              <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
-                {currencySymbol(currency)}
-              </span>
             </div>
+
+          </div>
+        </div>
+
+        {/* ── Tasks block ── */}
+        <div style={{
+          marginTop: 12,
+          background: "#F6F6F6",
+          borderRadius: 12,
+          padding: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}>
+          {/* Header row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+              Tasks
+            </span>
+            {!isAddingTask ? (
+              <span
+                onClick={() => setIsAddingTask(true)}
+                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+              >
+                Add
+              </span>
+            ) : (
+              <div style={{ display: "flex", gap: 20 }}>
+                <span
+                  onClick={handleCancelTask}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
+                >
+                  Cancel
+                </span>
+                <span
+                  onClick={handleSaveTask}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+                >
+                  Save
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Daily goal */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "20px" }}>
-              Daily goal
-            </span>
+          {/* New task input */}
+          {isAddingTask && (
             <input
+              autoFocus
               type="text"
-              placeholder="06:00:00"
-              value={dailyGoal}
-              onChange={(e) => setDailyGoal(e.target.value)}
-              style={{
-                height: 48,
-                width: "100%",
-                background: "white",
-                border: "1px solid #E3E5EA",
-                borderRadius: 8,
-                padding: "12px 16px",
+              placeholder="Task name"
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTask();
+                if (e.key === "Escape") handleCancelTask();
+              }}
+              style={{ ...inputBase, width: "100%" }}
+            />
+          )}
+
+          {/* Task list */}
+          {tasks.map((task) => (
+            <div
+              key={task.id}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}
+            >
+              <span style={{
+                fontFamily: "'Inter', sans-serif",
                 fontSize: 16,
                 color: "#181A2C",
-                fontFamily: "'DM Sans', sans-serif",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-        </div>
-      </div>
-
-      {/* Tasks block */}
-      <div style={{
-        position: "absolute",
-        top: 236,
-        left: 24,
-        width: 392,
-        background: "#F6F6F6",
-        borderRadius: 12,
-        padding: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        boxSizing: "border-box",
-      }}>
-
-        {/* Tasks header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}>
-            Tasks
-          </span>
-          {!isAddingTask ? (
-            <span
-              onClick={() => setIsAddingTask(true)}
-              style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
-            >
-              Add
-            </span>
-          ) : (
-            <div style={{ display: "flex", gap: 20 }}>
-              <span
-                onClick={() => { setIsAddingTask(false); setNewTaskName(""); }}
-                style={{ fontSize: 16, fontWeight: 500, color: "#FF5429", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
-              >
-                Cancel
+                lineHeight: "24px",
+                maxWidth: 304,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
+                {task.name}
               </span>
-              <span
-                onClick={handleCreateTask}
-                style={{ fontSize: 16, fontWeight: 500, color: "#7381D3", cursor: "pointer", fontFamily: "'Inter', sans-serif", lineHeight: "24px" }}
+              <button
+                onClick={() => handleDeleteTask(task.id)}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
               >
-                Save
-              </span>
+                <TrashIcon />
+              </button>
             </div>
-          )}
+          ))}
         </div>
 
-        {/* New task input */}
-        {isAddingTask && (
-          <input
-            autoFocus
-            type="text"
-            placeholder="Task name"
-            value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreateTask();
-              if (e.key === "Escape") { setIsAddingTask(false); setNewTaskName(""); }
-            }}
+        {/* ── Cancel / Save buttons ── */}
+        <div style={{
+          marginTop: "auto",
+          paddingTop: 24,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 12,
+        }}>
+          <button
+            onClick={onClose}
             style={{
+              width: 96,
               height: 48,
-              width: "100%",
-              background: "white",
-              border: "1px solid #E3E5EA",
+              background: "#F6F6F6",
               borderRadius: 8,
-              padding: "12px 16px",
+              border: "none",
               fontSize: 16,
+              fontWeight: 400,
               color: "#181A2C",
               fontFamily: "'DM Sans', sans-serif",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-        )}
-
-        {/* Task list */}
-        {tasks.map((task) => (
-          <div
-            key={task.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "8px 0",
+              cursor: "pointer",
             }}
           >
-            <span style={{
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              width: 96,
+              height: 48,
+              background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)",
+              boxShadow: "0px 4px 10px rgba(33,152,81,0.3)",
+              borderRadius: 8,
+              border: "none",
               fontSize: 16,
-              color: "#181A2C",
-              fontFamily: "'Inter', sans-serif",
-              lineHeight: "24px",
-              maxWidth: 304,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}>
-              {task.name}
-            </span>
-            <button
-              onClick={() => handleDeleteTask(task.id)}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}
-            >
-              <TrashIcon />
-            </button>
-          </div>
-        ))}
+              fontWeight: 400,
+              color: "white",
+              fontFamily: "'DM Sans', sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            Save
+          </button>
+        </div>
 
       </div>
-
-      {/* Cancel / Save buttons */}
-      <div style={{
-        position: "absolute",
-        bottom: 24,
-        right: 24,
-        display: "flex",
-        gap: 12,
-      }}>
-        <button
-          onClick={onClose}
-          style={{
-            width: 96,
-            height: 48,
-            background: "#F6F6F6",
-            borderRadius: 8,
-            border: "none",
-            fontSize: 16,
-            color: "#181A2C",
-            fontFamily: "'DM Sans', sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          style={{
-            width: 96,
-            height: 48,
-            background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)",
-            boxShadow: "0px 4px 10px rgba(33,152,81,0.3)",
-            borderRadius: 8,
-            border: "none",
-            fontSize: 16,
-            color: "white",
-            fontFamily: "'DM Sans', sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Save
-        </button>
-      </div>
-
     </div>
   );
 }
