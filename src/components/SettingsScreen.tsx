@@ -226,6 +226,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   value={goalH}
                   onChange={(e) => setGoalH(e.target.value.replace(/\D/g, "").slice(0, 2))}
                   onBlur={() => setGoalH((v) => v.padStart(2, "0"))}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
                 />
                 <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
@@ -236,6 +237,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   value={goalM}
                   onChange={(e) => setGoalM(e.target.value.replace(/\D/g, "").slice(0, 2))}
                   onBlur={() => setGoalM((v) => v.padStart(2, "0"))}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
                 />
               </div>
