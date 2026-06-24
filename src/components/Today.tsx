@@ -58,7 +58,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
             fontSize: 16,
             color: "#181A2C",
             lineHeight: "24px",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontVariantNumeric: "tabular-nums",
           }}>
             {formatTime(totalSeconds)} / {formatTime(dailyGoalSeconds)} · {pct}%
@@ -149,7 +149,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
               fontSize: 16,
               color: "#181A2C",
               lineHeight: "24px",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontVariantNumeric: "tabular-nums",
             }}>
               {formatTime(task.totalSeconds)}

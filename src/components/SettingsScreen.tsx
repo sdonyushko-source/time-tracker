@@ -46,13 +46,13 @@ const inputBase: React.CSSProperties = {
   padding: "12px 16px",
   fontSize: 16,
   color: "#181A2C",
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: "'Inter', sans-serif",
   outline: "none",
   boxSizing: "border-box",
 };
 
 const labelStyle: React.CSSProperties = {
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: "'Inter', sans-serif",
   fontSize: 14,
   fontWeight: 400,
   color: "#181A2C",
@@ -126,7 +126,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
         {/* Heading */}
         <span style={{
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           fontSize: 20,
           lineHeight: "24px",
@@ -145,7 +145,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
           flexDirection: "column",
           gap: 8,
         }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
             Tracking
           </span>
 
@@ -170,7 +170,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                     background: "none",
                     fontSize: 16,
                     color: "#181A2C",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     appearance: "none",
                     outline: "none",
                     cursor: "pointer",
@@ -206,11 +206,11 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                     background: "none",
                     fontSize: 16,
                     color: "#181A2C",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     outline: "none",
                   }}
                 />
-                <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
+                <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'Inter', sans-serif", flexShrink: 0 }}>
                   {currencySymbol(currency)}
                 </span>
               </div>
@@ -243,13 +243,13 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
         }}>
           {/* Header row */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
               Tasks
             </span>
             {!isAddingTask ? (
               <span
                 onClick={() => setIsAddingTask(true)}
-                style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
               >
                 Add
               </span>
@@ -257,13 +257,13 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               <div style={{ display: "flex", gap: 20 }}>
                 <span
                   onClick={handleCancelTask}
-                  style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
                 >
                   Cancel
                 </span>
                 <span
                   onClick={handleSaveTask}
-                  style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
                 >
                   Save
                 </span>
@@ -295,7 +295,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}
             >
               <span style={{
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontSize: 16,
                 color: "#181A2C",
                 lineHeight: "24px",
@@ -334,7 +334,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               fontSize: 16,
               fontWeight: 400,
               color: "#181A2C",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               cursor: "pointer",
             }}
           >
@@ -352,7 +352,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
               fontSize: 16,
               fontWeight: 400,
               color: "white",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               cursor: "pointer",
             }}
           >

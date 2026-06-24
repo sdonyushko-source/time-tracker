@@ -140,7 +140,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
     borderRadius: 8,
     fontSize: 16,
     color: "#181A2C",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "'Inter', sans-serif",
     outline: "none",
     boxSizing: "border-box",
   };
@@ -161,7 +161,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
 
         {/* Header */}
         <div style={{ width: 392 }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
             Edit time entry
           </span>
         </div>
@@ -173,11 +173,11 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
             {/* Session header — only for multiple entries */}
             {isMultiple && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
                   Session {i + 1}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
                     {formatTime(computeSessionSeconds(session.dateValue, session.startDisplay, session.endDisplay))}
                   </span>
                   <button
@@ -202,7 +202,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                   background: "none",
                   fontSize: 16,
                   color: "#181A2C",
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: "'Inter', sans-serif",
                   appearance: "none",
                   WebkitAppearance: "none",
                   outline: "none",
@@ -223,7 +223,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
               {/* Date — custom visual + native picker overlay */}
               <div style={{ flex: 1, position: "relative" }}>
                 <div style={{ ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", pointerEvents: "none" }}>
-                  <span style={{ fontSize: 16, color: "#181A2C", fontFamily: "'DM Sans', sans-serif" }}>
+                  <span style={{ fontSize: 16, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
                     {formatDateDisplay(session.dateValue)}
                   </span>
                   <CalendarIcon />
@@ -271,13 +271,13 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
           <div style={{ flex: 1 }} />
           <button
             onClick={onClose}
-            style={{ width: 96, height: 48, background: "#F6F6F6", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'DM Sans', sans-serif", color: "#181A2C", cursor: "pointer" }}
+            style={{ width: 96, height: 48, background: "#F6F6F6", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'Inter', sans-serif", color: "#181A2C", cursor: "pointer" }}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            style={{ width: 96, height: 48, background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)", boxShadow: "0px 4px 10px rgba(33,152,81,0.3)", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'DM Sans', sans-serif", color: "white", cursor: "pointer" }}
+            style={{ width: 96, height: 48, background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)", boxShadow: "0px 4px 10px rgba(33,152,81,0.3)", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'Inter', sans-serif", color: "white", cursor: "pointer" }}
           >
             Save
           </button>

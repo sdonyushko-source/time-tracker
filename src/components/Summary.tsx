@@ -53,7 +53,7 @@ export default function Summary({ todayEntries, weekEntries, monthEntries, setti
             flexShrink: 0,
             textAlign: "right",
             fontVariantNumeric: "tabular-nums",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Inter', sans-serif",
           }}>
             {formatTime(row.seconds)}
           </span>

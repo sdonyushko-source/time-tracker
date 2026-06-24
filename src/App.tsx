@@ -156,7 +156,7 @@ export default function App() {
     <div style={{
       width: 440,
       background: "#FFFFFF",
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Inter', sans-serif",
       position: "relative",
     }}>
       <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 80 }}>

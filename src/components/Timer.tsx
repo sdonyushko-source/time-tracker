@@ -89,7 +89,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
             textAlign: "center",
             color: "#181A2C",
             fontVariantNumeric: "tabular-nums",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             margin: 0,
           }}>
             {formatTime(elapsedSeconds)}

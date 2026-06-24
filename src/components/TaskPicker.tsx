@@ -26,7 +26,7 @@ export default function TaskPicker({ tasks, selectedTaskId, onSelect, color = "#
         outline: "none",
         cursor: "pointer",
         padding: 0,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Inter', sans-serif",
         WebkitAppearance: "none",
         overflow: "hidden",
         textOverflow: "ellipsis",
