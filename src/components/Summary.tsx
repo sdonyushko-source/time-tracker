@@ -1,5 +1,5 @@
 import { TimeEntry, Settings } from "../db";
-import { formatTimeHM, formatAmount } from "../utils";
+import { formatTime, formatAmount } from "../utils";
 
 interface SummaryProps {
   todayEntries: TimeEntry[];
@@ -55,7 +55,7 @@ export default function Summary({ todayEntries, weekEntries, monthEntries, setti
             fontVariantNumeric: "tabular-nums",
             fontFamily: "'Inter', sans-serif",
           }}>
-            {formatTimeHM(row.seconds)}
+            {formatTime(row.seconds)}
           </span>
           <span style={{ width: 99, flexShrink: 0, textAlign: "right" }}>
             {formatAmount(row.amount, currency)}

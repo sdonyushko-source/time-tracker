@@ -1,5 +1,5 @@
 import { TimeEntry, Settings } from "../db";
-import { formatTimeHM } from "../utils";
+import { formatTime, formatTimeHM } from "../utils";
 
 interface TodayProps {
   entries: TimeEntry[];
@@ -152,7 +152,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
               fontFamily: "'Inter', sans-serif",
               fontVariantNumeric: "tabular-nums",
             }}>
-              {formatTimeHM(task.totalSeconds)}
+              {formatTime(task.totalSeconds)}
             </span>
           </div>
         ))}
