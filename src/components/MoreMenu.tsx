@@ -1,29 +1,19 @@
 import { useState } from "react";
 
 const CopyIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <rect x="8" y="8" width="13" height="13" rx="2" stroke="#181A2C" strokeWidth="1.5"/>
-    <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
+  <img src="https://www.figma.com/api/mcp/asset/bc8fc0fa-5ac7-41b2-9a71-ebd1bb5c512b" style={{ width: 24, height: 24 }} />
 );
 
 const HistoryIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="9" stroke="#181A2C" strokeWidth="1.5"/>
-    <path d="M12 7v5l3 3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M3 12H1m3.22-6.78L3 4M12 1V3" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
+  <div style={{ position: "relative", width: 24, height: 24 }}>
+    <img src="https://www.figma.com/api/mcp/asset/73716033-24ec-4a44-b33d-b93084279b4c" style={{ position: "absolute", top: 9, left: 12, width: 4, height: 9 }} />
+    <img src="https://www.figma.com/api/mcp/asset/7305b088-cbf3-4d39-849c-e92ea81603df" style={{ position: "absolute", top: 2, left: 12, width: 10, height: 17 }} />
+    <img src="https://www.figma.com/api/mcp/asset/bae7ddc0-2d3e-49b4-b4cf-0d1d0708fed1" style={{ position: "absolute", top: 2, left: 2, width: 17, height: 20 }} />
+  </div>
 );
 
 const SettingsIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <line x1="3" y1="6" x2="21" y2="6" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <line x1="3" y1="12" x2="21" y2="12" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <line x1="3" y1="18" x2="21" y2="18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <circle cx="7" cy="6" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
-    <circle cx="17" cy="12" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
-    <circle cx="10" cy="18" r="2" fill="white" stroke="#181A2C" strokeWidth="1.5"/>
-  </svg>
+  <img src="https://www.figma.com/api/mcp/asset/f9338c2c-f878-4ae1-b6f9-34b91bc973fe" style={{ width: 18, height: 15, margin: "4px 3px" }} />
 );
 
 interface MoreMenuProps {
