@@ -160,12 +160,13 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
             {/* Currency */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={labelStyle}>Currency</span>
-              <div style={{
+              <label style={{
                 ...inputBase,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "0 16px",
+                cursor: "pointer",
               }}>
                 <select
                   value={currency}
@@ -187,7 +188,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
                   <option value="RUB">RUB</option>
                 </select>
                 <ChevronDown />
-              </div>
+              </label>
             </div>
 
             {/* Hourly rate */}
