@@ -13,16 +13,20 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
   const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
 
   // Group entries by task
-  const taskMap: Record<string, { name: string; totalSeconds: number; count: number }> = {};
+  const taskMap: Record<string, { name: string; totalSeconds: number; count: number; firstStartTime: string }> = {};
   entries.forEach((e) => {
     if (!e.endTime) return;
     if (!taskMap[e.taskId]) {
-      taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, count: 0 };
+      taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, count: 0, firstStartTime: e.startTime };
+    } else if (e.startTime < taskMap[e.taskId].firstStartTime) {
+      taskMap[e.taskId].firstStartTime = e.startTime;
     }
     taskMap[e.taskId].count += 1;
     taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
   });
-  const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
+  const tasks = Object.entries(taskMap)
+    .map(([id, t]) => ({ id, ...t }))
+    .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
 
   return (
     <>
