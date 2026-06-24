@@ -23,6 +23,8 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
   const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
 
   return (
+    <>
+    <style>{`.today-task-list::-webkit-scrollbar { display: none; }`}</style>
     <div style={{
       border: "1px solid #E3E5EA",
       borderRadius: 12,
@@ -77,7 +79,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+      <div className="today-task-list" style={{ display: "flex", flexDirection: "column", width: "100%", maxHeight: 160, overflowY: "auto", scrollbarWidth: "none" }}>
         {tasks.map((task) => (
           <div
             key={task.id}
@@ -137,5 +139,6 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
         ))}
       </div>
     </div>
+    </>
   );
 }
