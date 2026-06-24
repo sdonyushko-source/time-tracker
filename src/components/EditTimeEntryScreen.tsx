@@ -12,18 +12,18 @@ interface EditTimeEntryScreenProps {
 type SessionEdit = {
   id: string;
   taskId: string;
-  dateDisplay: string;
-  startDisplay: string;
-  endDisplay: string;
+  dateValue: string;    // YYYY-MM-DD for <input type="date">
+  startDisplay: string; // HH:MM
+  endDisplay: string;   // HH:MM
   durationSeconds: number;
 };
 
-function isoToDateDisplay(iso: string): string {
+function isoToDateValue(iso: string): string {
   const d = new Date(iso);
   return (
-    String(d.getDate()).padStart(2, "0") + "." +
-    String(d.getMonth() + 1).padStart(2, "0") + "." +
-    d.getFullYear()
+    d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0")
   );
 }
 
@@ -32,25 +32,26 @@ function isoToTimeDisplay(iso: string): string {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-function displayToISO(dateDisplay: string, timeDisplay: string): string {
-  const parts = dateDisplay.split(".");
-  const timeParts = timeDisplay.split(":");
+// dateValue: YYYY-MM-DD, timeDisplay: HH:MM or partial
+function displayToISO(dateValue: string, timeDisplay: string): string {
+  const [yyyy, mm, dd] = dateValue.split("-");
+  const [hh, min] = timeDisplay.split(":");
   return new Date(
-    parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]),
-    parseInt(timeParts[0] ?? "0"), parseInt(timeParts[1] ?? "0")
+    parseInt(yyyy), parseInt(mm) - 1, parseInt(dd),
+    parseInt(hh ?? "0"), parseInt(min ?? "0")
   ).toISOString();
+}
+
+// Strips non-digits, formats up to 4 digits as HH:MM
+function maskTime(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + ":" + digits.slice(2);
 }
 
 const TrashIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M18 9.5L17.3448 16.3792C17.181 18.0994 17.0991 18.9595 16.5269 19.4797C15.9548 20 15.0908 20 13.3629 20H10.6371C8.90921 20 8.04524 20 7.47307 19.4797C6.9009 18.9595 6.81899 18.0994 6.65517 16.3792L6 9.5M5 7H9M19 7H15M15 7C15 6.06812 15 5.60218 14.8478 5.23463C14.6448 4.74458 14.2554 4.35523 13.7654 4.15224C13.3978 4 12.9319 4 12 4C11.0681 4 10.6022 4 10.2346 4.15224C9.74458 4.35523 9.35523 4.74458 9.15224 5.23463C9 5.60218 9 6.06812 9 7M15 7L9 7" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-
-const CalendarIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M6.85714 5.57143H5.57143C4.15127 5.57143 3 6.7227 3 8.14286V18.4286C3 19.8487 4.15127 21 5.57143 21H18.4286C19.8487 21 21 19.8487 21 18.4286V8.14286C21 6.7227 19.8487 5.57143 18.4286 5.57143H17.1429M6.85714 5.57143V3M6.85714 5.57143V8.14286M6.85714 5.57143H17.1429M17.1429 5.57143V3M17.1429 5.57143V8.14286" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <path d="M7.5 12.6428H7.51286M12 12.6428H12.0129M16.5 12.6428H16.5129M7.5 16.5H7.51286M12 16.5H12.0129" stroke="#181A2C" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M18 9.5L17.3448 16.3792C17.181 18.0994 17.0991 18.9595 16.5269 19.4797C15.9548 20 15.0908 20 13.3629 20H10.6371C8.90921 20 8.04524 20 7.47307 19.4797C6.9009 18.9595 6.81899 18.0994 6.65517 16.3792L6 9.5M5 7H9M19 7H15M15 7C15 6.06812 15 5.60218 14.8478 5.23463C14.6448 4.74458 14.2554 4.35523 13.7654 4.15224C13.3978 4 12.9319 4 12 4C11.0681 4 10.6022 4 10.2346 4.15224C9.74458 4.35523 9.35523 4.74458 9.15224 5.23463C9 5.60218 9 6.06812 9 7M15 7L9 7" stroke="#FF5429" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
@@ -65,9 +66,9 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
     entries.map((e) => ({
       id: e.id,
       taskId: e.taskId,
-      dateDisplay: isoToDateDisplay(e.startTime),
+      dateValue: isoToDateValue(e.startTime),
       startDisplay: isoToTimeDisplay(e.startTime),
-      endDisplay: e.endTime ? isoToTimeDisplay(e.endTime) : "--:--",
+      endDisplay: e.endTime ? isoToTimeDisplay(e.endTime) : "00:00",
       durationSeconds: e.durationSeconds ?? 0,
     }))
   );
@@ -93,9 +94,8 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
 
   const handleSave = async () => {
     for (const session of sessions) {
-      if (!session.endDisplay || session.endDisplay === "--:--") continue;
-      const startISO = displayToISO(session.dateDisplay, session.startDisplay);
-      const endISO = displayToISO(session.dateDisplay, session.endDisplay);
+      const startISO = displayToISO(session.dateValue, session.startDisplay);
+      const endISO = displayToISO(session.dateValue, session.endDisplay);
       const dur = Math.max(0, Math.round((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
       const task = tasks.find((t) => t.id === session.taskId);
       await updateEntry(session.id, session.taskId, task?.name ?? "", startISO, endISO, dur);
@@ -127,7 +127,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
 
   return (
     <div style={{ width: 440, minHeight: 380, background: "white", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "64px 24px 24px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: 392 }}>
@@ -164,7 +164,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
             )}
 
             {/* Task dropdown */}
-            <div style={{ ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
+            <div style={{ ...fieldBase, display: "flex", alignItems: "center", padding: "0 16px" }}>
               <select
                 value={session.taskId}
                 onChange={(e) => updateSession(i, { taskId: e.target.value })}
@@ -189,28 +189,32 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
 
             {/* Date + start — end */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* Date (display only) */}
-              <div style={{ flex: 1, ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-                <span style={{ fontSize: 16, color: "#181A2C", fontFamily: "'DM Sans', sans-serif" }}>
-                  {session.dateDisplay}
-                </span>
-                <CalendarIcon />
-              </div>
-              {/* Start */}
+              {/* Date — native macOS date picker */}
+              <input
+                type="date"
+                value={session.dateValue}
+                onChange={(e) => updateSession(i, { dateValue: e.target.value })}
+                style={{ flex: 1, ...fieldBase, padding: "12px 16px", cursor: "pointer" }}
+              />
+              {/* Start time with HH:MM mask */}
               <input
                 type="text"
+                inputMode="numeric"
+                placeholder="00:00"
                 value={session.startDisplay}
-                onChange={(e) => updateSession(i, { startDisplay: e.target.value })}
-                style={{ ...fieldBase, width: 79, padding: "12px 16px" }}
+                onChange={(e) => updateSession(i, { startDisplay: maskTime(e.target.value) })}
+                style={{ ...fieldBase, width: 79, padding: "12px 16px", textAlign: "center" }}
               />
               {/* Separator */}
-              <div style={{ width: 8, height: 1, background: "#181A2C", flexShrink: 0 }} />
-              {/* End */}
+              <div style={{ width: 8, height: 1, background: "#E3E5EA", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+              {/* End time with HH:MM mask */}
               <input
                 type="text"
+                inputMode="numeric"
+                placeholder="00:00"
                 value={session.endDisplay}
-                onChange={(e) => updateSession(i, { endDisplay: e.target.value })}
-                style={{ ...fieldBase, width: 79, padding: "12px 16px" }}
+                onChange={(e) => updateSession(i, { endDisplay: maskTime(e.target.value) })}
+                style={{ ...fieldBase, width: 79, padding: "12px 16px", textAlign: "center" }}
               />
             </div>
 
