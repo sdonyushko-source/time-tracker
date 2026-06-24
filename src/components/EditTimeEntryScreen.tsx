@@ -49,15 +49,15 @@ function formatDateDisplay(dateValue: string): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
-// Compute duration in seconds from two HH:MM display values; 0 if invalid
+// Compute duration in seconds from two HH:MM display values; 0 if invalid.
+// If end <= start, assumes midnight crossing and adds 24h to end.
 function computeSessionSeconds(dateValue: string, start: string, end: string): number {
   if (!dateValue || start.length < 5 || end.length < 5) return 0;
   try {
-    const diff = Math.round(
-      (new Date(displayToISO(dateValue, end)).getTime() -
-       new Date(displayToISO(dateValue, start)).getTime()) / 1000
-    );
-    return diff > 0 ? diff : 0;
+    const startMs = new Date(displayToISO(dateValue, start)).getTime();
+    let endMs = new Date(displayToISO(dateValue, end)).getTime();
+    if (endMs <= startMs) endMs += 86400 * 1000;
+    return Math.round((endMs - startMs) / 1000);
   } catch {
     return 0;
   }
@@ -122,8 +122,11 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
   const handleSave = async () => {
     for (const session of sessions) {
       const startISO = displayToISO(session.dateValue, session.startDisplay);
-      const endISO = displayToISO(session.dateValue, session.endDisplay);
-      const dur = Math.max(0, Math.round((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
+      const startMs = new Date(startISO).getTime();
+      let endMs = new Date(displayToISO(session.dateValue, session.endDisplay)).getTime();
+      if (endMs <= startMs) endMs += 86400 * 1000; // crosses midnight — shift end to next day
+      const endISO = new Date(endMs).toISOString();
+      const dur = Math.round((endMs - startMs) / 1000);
       const task = tasks.find((t) => t.id === session.taskId);
       await updateEntry(session.id, session.taskId, task?.name ?? "", startISO, endISO, dur);
     }
