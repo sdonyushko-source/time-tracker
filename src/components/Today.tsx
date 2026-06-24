@@ -12,15 +12,16 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
   const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
 
   // Group entries by task
-  const taskMap: Record<string, { name: string; totalSeconds: number; active: boolean }> = {};
+  const taskMap: Record<string, { name: string; totalSeconds: number; count: number; active: boolean }> = {};
   entries.forEach((e) => {
     if (!taskMap[e.taskId]) {
-      taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, active: false };
+      taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, count: 0, active: false };
     }
-    taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
+    taskMap[e.taskId].count += 1;
+    if (e.endTime) taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
     if (!e.endTime) taskMap[e.taskId].active = true;
   });
-  const tasks = Object.entries(taskMap).filter(([, t]) => !t.active).map(([id, t]) => ({ id, ...t }));
+  const tasks = Object.entries(taskMap).map(([id, t]) => ({ id, ...t }));
 
   return (
     <>
@@ -112,6 +113,21 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds }
               }}>
                 {task.name}
               </span>
+              {task.count > 1 && (
+                <span style={{
+                  width: 16,
+                  background: "#F6F6F6",
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "#908F8F",
+                  flexShrink: 0,
+                  textAlign: "center",
+                  lineHeight: "16px",
+                }}>
+                  {task.count}
+                </span>
+              )}
               {task.active && (
                 <span style={{
                   width: 6,
