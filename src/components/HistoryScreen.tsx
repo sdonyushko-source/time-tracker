@@ -31,7 +31,7 @@ export default function HistoryScreen({ entries, currency, hourlyRate }: History
         justifyContent: "center",
         minHeight: 120,
       }}>
-        <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'Inter', sans-serif" }}>
+        <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
           No entries yet
         </span>
       </div>
@@ -55,7 +55,7 @@ export default function HistoryScreen({ entries, currency, hourlyRate }: History
       overflowY: "auto",
       maxHeight: 348,
     }}>
-      <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
+      <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", fontFamily: "'DM Sans', sans-serif" }}>
         History
       </span>
 
@@ -72,19 +72,19 @@ export default function HistoryScreen({ entries, currency, hourlyRate }: History
               alignItems: "center",
               paddingBottom: 8,
             }}>
-              <span style={{ fontSize: 14, color: "#908F8F", fontFamily: "'Inter', sans-serif" }}>
+              <span style={{ fontSize: 14, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
                 {formatDate(date)}
               </span>
               <div style={{ display: "flex", gap: 12 }}>
                 <span style={{
                   fontSize: 14,
                   color: "#908F8F",
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "'DM Sans', sans-serif",
                   fontVariantNumeric: "tabular-nums",
                 }}>
                   {formatTime(dayTotal)}
                 </span>
-                <span style={{ fontSize: 14, color: "#908F8F", fontFamily: "'Inter', sans-serif" }}>
+                <span style={{ fontSize: 14, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
                   {formatAmount((dayTotal / 3600) * hourlyRate, currency)}
                 </span>
               </div>
@@ -106,12 +106,12 @@ export default function HistoryScreen({ entries, currency, hourlyRate }: History
                   <span style={{
                     fontSize: 14,
                     color: "#181A2C",
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'DM Sans', sans-serif",
                     lineHeight: "20px",
                   }}>
                     {entry.taskNameSnapshot}
                   </span>
-                  <span style={{ fontSize: 12, color: "#908F8F", fontFamily: "'Inter', sans-serif" }}>
+                  <span style={{ fontSize: 12, color: "#908F8F", fontFamily: "'DM Sans', sans-serif" }}>
                     {formatClock(entry.startTime)}
                     {entry.endTime ? ` – ${formatClock(entry.endTime)}` : ""}
                   </span>
@@ -119,7 +119,7 @@ export default function HistoryScreen({ entries, currency, hourlyRate }: History
                 <span style={{
                   fontSize: 14,
                   color: "#181A2C",
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "'DM Sans', sans-serif",
                   fontVariantNumeric: "tabular-nums",
                 }}>
                   {formatTime(entry.durationSeconds ?? 0)}

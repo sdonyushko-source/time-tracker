@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Task } from "../db";
+import TaskPicker from "./TaskPicker";
 
 interface TimerProps {
   isActive: boolean;
@@ -7,8 +8,7 @@ interface TimerProps {
   onToggle: () => void;
   tasks: Task[];
   selectedTaskId: string;
-  showTaskPicker: boolean;
-  onTaskClick: () => void;
+  onTaskSelect: (id: string) => void;
   onMoreClick: () => void;
 }
 
@@ -59,9 +59,8 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick, onMoreClick }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, onTaskSelect, onMoreClick }: TimerProps) {
   const [taskHovered, setTaskHovered] = useState(false);
-  const nameColor = (showTaskPicker || taskHovered) ? "#7381D3" : "#181A2C";
 
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
@@ -75,29 +74,14 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
         justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <button
-            onClick={onTaskClick}
+          <TaskPicker
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            onSelect={onTaskSelect}
+            color={taskHovered ? "#7381D3" : "#181A2C"}
             onMouseEnter={() => setTaskHovered(true)}
             onMouseLeave={() => setTaskHovered(false)}
-            style={{
-              width: 182,
-              flexShrink: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontSize: 16,
-              color: nameColor,
-              margin: 0,
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              textAlign: "left",
-              padding: 0,
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            {tasks.find((t) => t.id === selectedTaskId)?.name ?? "Select a task"}
-          </button>
+          />
           <p style={{
             width: 90,
             flexShrink: 0,
@@ -105,7 +89,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
             textAlign: "center",
             color: "#181A2C",
             fontVariantNumeric: "tabular-nums",
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
             margin: 0,
           }}>
             {formatTime(elapsedSeconds)}

@@ -161,7 +161,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
 
         {/* Header */}
         <div style={{ width: 392 }}>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
             Edit time entry
           </span>
         </div>
@@ -173,11 +173,11 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
             {/* Session header — only for multiple entries */}
             {isMultiple && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
                   Session {i + 1}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
                     {formatTime(computeSessionSeconds(session.dateValue, session.startDisplay, session.endDisplay))}
                   </span>
                   <button
