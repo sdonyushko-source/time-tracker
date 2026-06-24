@@ -49,19 +49,14 @@ function formatDateDisplay(dateValue: string): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
-// Live display while typing: 0-1 digits = bare, 2 digits = "HH:", 3-4 = "HH:MM"
-function digitsToDisplay(digits: string): string {
-  if (digits.length < 2) return digits;
-  if (digits.length === 2) return digits + ":";
-  return digits.slice(0, 2) + ":" + digits.slice(2);
-}
-
-// Commit/normalise: clamp hours ≤23, minutes ≤59, always return "HH:MM"
-function normalizeTimeDisplay(display: string): string {
-  const digits = display.replace(/\D/g, "").slice(0, 4);
+// Parse free-text time input → "HH:MM", clamp hours ≤23, minutes ≤59
+function parseTimeInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
   if (!digits) return "00:00";
-  const h = Math.min(23, parseInt(digits.slice(0, 2)) || 0);
-  const m = Math.min(59, parseInt(digits.slice(2, 4)) || 0);
+  const hStr = digits.length === 1 ? "0" + digits[0] : digits.slice(0, 2);
+  const mStr = digits.length <= 2 ? "00" : digits.length === 3 ? digits[2] + "0" : digits.slice(2, 4);
+  const h = Math.min(23, parseInt(hStr) || 0);
+  const m = Math.min(59, parseInt(mStr) || 0);
   return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
 }
 
@@ -249,61 +244,27 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
               <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0 }}>
                 <input
                   type="text"
-                  inputMode="numeric"
                   value={session.startDisplay}
-                  onChange={() => {}}
-                  onKeyDown={(e) => {
-                    if (e.key >= "0" && e.key <= "9") {
-                      e.preventDefault();
-                      const el = e.currentTarget;
-                      const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length;
-                      if (allSelected) {
-                        updateSession(i, { startDisplay: digitsToDisplay(e.key) });
-                      } else {
-                        const d = session.startDisplay.replace(/\D/g, "");
-                        if (d.length < 4) updateSession(i, { startDisplay: digitsToDisplay(d + e.key) });
-                      }
-                    } else if (e.key === "Backspace") {
-                      e.preventDefault();
-                      const d = session.startDisplay.replace(/\D/g, "");
-                      updateSession(i, { startDisplay: digitsToDisplay(d.slice(0, -1)) });
-                    } else if (e.key === "Enter") {
-                      e.currentTarget.blur();
-                    } else if (e.key.length === 1) {
-                      e.preventDefault();
-                    }
+                  onChange={(e) => {
+                    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    updateSession(i, { startDisplay: d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d });
                   }}
-                  onBlur={() => updateSession(i, { startDisplay: normalizeTimeDisplay(session.startDisplay) })}
+                  onClick={(e) => e.currentTarget.select()}
+                  onBlur={() => updateSession(i, { startDisplay: parseTimeInput(session.startDisplay) })}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
                 />
                 <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
                 <input
                   type="text"
-                  inputMode="numeric"
                   value={session.endDisplay}
-                  onChange={() => {}}
-                  onKeyDown={(e) => {
-                    if (e.key >= "0" && e.key <= "9") {
-                      e.preventDefault();
-                      const el = e.currentTarget;
-                      const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length;
-                      if (allSelected) {
-                        updateSession(i, { endDisplay: digitsToDisplay(e.key) });
-                      } else {
-                        const d = session.endDisplay.replace(/\D/g, "");
-                        if (d.length < 4) updateSession(i, { endDisplay: digitsToDisplay(d + e.key) });
-                      }
-                    } else if (e.key === "Backspace") {
-                      e.preventDefault();
-                      const d = session.endDisplay.replace(/\D/g, "");
-                      updateSession(i, { endDisplay: digitsToDisplay(d.slice(0, -1)) });
-                    } else if (e.key === "Enter") {
-                      e.currentTarget.blur();
-                    } else if (e.key.length === 1) {
-                      e.preventDefault();
-                    }
+                  onChange={(e) => {
+                    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    updateSession(i, { endDisplay: d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d });
                   }}
-                  onBlur={() => updateSession(i, { endDisplay: normalizeTimeDisplay(session.endDisplay) })}
+                  onClick={(e) => e.currentTarget.select()}
+                  onBlur={() => updateSession(i, { endDisplay: parseTimeInput(session.endDisplay) })}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
                 />
               </div>
