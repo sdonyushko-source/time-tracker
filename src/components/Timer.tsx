@@ -8,6 +8,7 @@ interface TimerProps {
   selectedTaskId: string;
   showTaskPicker: boolean;
   onTaskClick: () => void;
+  onMoreClick: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -16,6 +17,14 @@ function formatTime(seconds: number): string {
   const s = seconds % 60;
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
+
+const ThreeDotsIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="6" r="1.5" fill="#181A2C" />
+    <circle cx="12" cy="12" r="1.5" fill="#181A2C" />
+    <circle cx="12" cy="18" r="1.5" fill="#181A2C" />
+  </svg>
+);
 
 const PlaySVG = () => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ overflow: "visible" }}>
@@ -49,7 +58,7 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, showTaskPicker, onTaskClick, onMoreClick }: TimerProps) {
   const nameColor = (showTaskPicker || (selectedTaskId !== "" && isActive)) ? "#7381D3" : "#181A2C";
 
   return (
@@ -67,7 +76,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
           <button
             onClick={onTaskClick}
             style={{
-              width: 214,
+              width: 182,
               flexShrink: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -99,27 +108,43 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
           </p>
         </div>
 
-        <button
-          onClick={onToggle}
-          style={{
-            width: 48,
-            height: 48,
-            flexShrink: 0,
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            overflow: "visible",
-            position: "relative",
-          }}
-        >
-          <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 0 : 1, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
-            <PlaySVG />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={onToggle}
+            style={{
+              width: 48,
+              height: 48,
+              flexShrink: 0,
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              overflow: "visible",
+              position: "relative",
+            }}
+          >
+            <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 0 : 1, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
+              <PlaySVG />
+            </div>
+            <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
+              <StopSVG />
+            </div>
+          </button>
+          <div
+            onClick={onMoreClick}
+            style={{
+              width: 24,
+              height: 24,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <ThreeDotsIcon />
           </div>
-          <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
-            <StopSVG />
-          </div>
-        </button>
+        </div>
       </div>
     </div>
   );

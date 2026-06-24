@@ -124,6 +124,7 @@ export default function App() {
           selectedTaskId={selectedTaskId}
           showTaskPicker={showTaskPicker}
           onTaskClick={() => setShowTaskPicker(true)}
+          onMoreClick={() => setShowMoreMenu(!showMoreMenu)}
         />
       </div>
 
@@ -184,7 +185,6 @@ export default function App() {
       )}
       <MoreMenu
         showMenu={showMoreMenu}
-        onToggle={() => setShowMoreMenu(!showMoreMenu)}
         onCopyReport={handleCopyReport}
         onHistory={() => alert("History coming soon")}
         onSettings={() => alert("Settings coming soon")}
