@@ -160,35 +160,36 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
             {/* Currency */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={labelStyle}>Currency</span>
-              <label style={{
-                ...inputBase,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0 16px",
-                cursor: "pointer",
-              }}>
+              <div style={{ position: "relative" }}>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   style={{
-                    flex: 1,
-                    border: "none",
-                    background: "none",
+                    height: 48,
+                    width: "100%",
+                    background: "white",
+                    border: "1px solid #E3E5EA",
+                    borderRadius: 8,
+                    padding: "12px 16px",
+                    fontFamily: "'Inter', sans-serif",
                     fontSize: 16,
                     color: "#181A2C",
-                    fontFamily: "'Inter', sans-serif",
-                    appearance: "none",
-                    outline: "none",
                     cursor: "pointer",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    outline: "none",
+                    boxSizing: "border-box",
                   }}
                 >
                   <option value="USD">USD</option>
                   <option value="EUR">EUR</option>
                   <option value="RUB">RUB</option>
+                  <option value="GBP">GBP</option>
                 </select>
-                <ChevronDown />
-              </label>
+                <div style={{ position: "absolute", right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                  <ChevronDown />
+                </div>
+              </div>
             </div>
 
             {/* Hourly rate */}
