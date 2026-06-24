@@ -316,8 +316,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
 
         {/* ── Cancel / Save buttons ── */}
         <div style={{
-          marginTop: "auto",
-          paddingTop: 24,
+          marginTop: 24,
           display: "flex",
           justifyContent: "flex-end",
           gap: 12,
