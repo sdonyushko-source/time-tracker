@@ -247,6 +247,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                 <input
                   type="date"
                   value={session.dateValue}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={(e) => updateSession(i, { dateValue: e.target.value })}
                   style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
                 />
