@@ -12,6 +12,15 @@ export function formatTimeHM(seconds: number): string {
   return h + ":" + String(m).padStart(2, "0");
 }
 
+// Russian short format: "Xч Yм" / "Xч" / "Yм"
+export function formatTimeRU(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}ч ${m}м`;
+  if (h > 0) return `${h}ч`;
+  return `${m}м`;
+}
+
 export function formatAmount(amount: number, currency: string): string {
   const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency + " ";
   return symbol + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
