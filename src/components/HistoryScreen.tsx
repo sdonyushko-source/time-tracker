@@ -72,7 +72,7 @@ export default function HistoryScreen({ activeEntryId, onClose }: HistoryScreenP
   const visibleDays = currentMonth ? (showFullMonth ? currentMonth.days : currentMonth.days.slice(0, 7)) : [];
   return (
     <div style={{ width: 440, background: "#FFFFFF", fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 24px", height: 40, borderBottom: "1px solid #E3E5EA", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 24px", height: 40, boxSizing: "border-box" }}>
         <span style={{ fontSize: 20, fontWeight: 500, color: "#181A2C", lineHeight: "24px" }}>History</span>
         <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6L18 18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -88,7 +88,7 @@ export default function HistoryScreen({ activeEntryId, onClose }: HistoryScreenP
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatTime(day.totalSeconds)}</span>
                 </div>
                 {day.tasks.map((task, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, background: "white" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px", borderRadius: 8, background: "white" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, width: 264, overflow: "hidden" }}>
                       <span style={{ fontSize: 16, color: "#181A2C", lineHeight: "24px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.name}</span>
                       {task.isActive && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />}
