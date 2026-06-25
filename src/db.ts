@@ -190,6 +190,13 @@ export async function renameTask(id: string, name: string): Promise<void> {
   await db.execute("UPDATE tasks SET name = ? WHERE id = ?", [name, id]);
 }
 
+export async function getAllEntries(): Promise<TimeEntry[]> {
+  const db = await getDB();
+  return db.select<TimeEntry[]>(
+    "SELECT * FROM time_entries ORDER BY date DESC, startTime DESC"
+  );
+}
+
 export async function stopEntry(
   id: string,
   endTime: string,

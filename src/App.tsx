@@ -6,6 +6,7 @@ import Today from "./components/Today";
 import Summary from "./components/Summary";
 import MoreMenu from "./components/MoreMenu";
 import SettingsScreen from "./components/SettingsScreen";
+import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
 import { formatTime, formatAmount } from "./utils";
 import {
@@ -15,7 +16,7 @@ import {
   startEntry, stopEntry,
 } from "./db";
 
-type Screen = "timer" | "settings" | "editTimeEntry";
+type Screen = "timer" | "settings" | "editTimeEntry" | "history";
 
 const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
@@ -66,6 +67,8 @@ export default function App() {
     const appWindow = getCurrentWindow();
     if (screen === "settings") {
       appWindow.setSize(new LogicalSize(440, 520));
+    } else if (screen === "history") {
+      appWindow.setSize(new LogicalSize(440, 600));
     } else if (screen === "editTimeEntry") {
       const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId).length;
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
@@ -142,6 +145,15 @@ export default function App() {
     await navigator.clipboard.writeText(lines.join("\n"));
     setShowMoreMenu(false);
   };
+
+  if (screen === "history") {
+    return (
+      <HistoryScreen
+        activeEntryId={activeEntryId}
+        onClose={() => setScreen("timer")}
+      />
+    );
+  }
 
   if (screen === "settings") {
     return (
@@ -226,7 +238,7 @@ export default function App() {
       <MoreMenu
         showMenu={showMoreMenu}
         onCopyReport={handleCopyReport}
-        onHistory={() => alert("History coming soon")}
+        onHistory={() => { setShowMoreMenu(false); setScreen("history"); }}
         onSettings={() => { setShowMoreMenu(false); setScreen("settings"); }}
       />
     </div>
