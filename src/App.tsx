@@ -13,7 +13,7 @@ import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
   getTodayEntries, getWeekEntries, getMonthEntries,
-  startEntry, stopEntry,
+  startEntry, stopEntry, getActiveEntry,
 } from "./db";
 
 type Screen = "timer" | "settings" | "editTimeEntry" | "history";
@@ -40,21 +40,33 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await initDB();
-      const [s, t, today, week, month] = await Promise.all([
+      const [s, t, today, week, month, active] = await Promise.all([
         getSettings(), getTasks(), getTodayEntries(), getWeekEntries(), getMonthEntries(),
+        getActiveEntry(),
       ]);
       setSettings(s);
       setTasks(t);
-      if (t.length) setSelectedTaskId(t[0].id);
       setTodayEntries(today);
       setWeekEntries(week);
       setMonthEntries(month);
+
+      if (active) {
+        const elapsed = Math.floor((Date.now() - new Date(active.startTime).getTime()) / 1000);
+        startTimeRef.current = Date.now() - elapsed * 1000;
+        setActiveEntryId(active.id);
+        setIsActive(true);
+        setElapsedSeconds(elapsed);
+        const task = t.find((task) => task.id === active.taskId);
+        if (task) setSelectedTaskId(task.id);
+      } else {
+        if (t.length) setSelectedTaskId(t[0].id);
+      }
     })();
   }, []);
 
   useEffect(() => {
     if (!isActive) return;
-    startTimeRef.current = Date.now();
+    if (startTimeRef.current === null) startTimeRef.current = Date.now();
     const interval = setInterval(() => {
       if (startTimeRef.current !== null) {
         setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
