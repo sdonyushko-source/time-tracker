@@ -82,7 +82,7 @@ export default function App() {
     } else if (screen === "history") {
       appWindow.setSize(new LogicalSize(440, 600));
     } else if (screen === "editTimeEntry") {
-      const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).length;
+      const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime)).length;
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
       appWindow.setSize(new LogicalSize(440, h));
     } else {
@@ -179,7 +179,7 @@ export default function App() {
   if (screen === "editTimeEntry") {
     return (
       <EditTimeEntryScreen
-        entries={todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null)}
+        entries={todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime))}
         tasks={tasks}
         onClose={() => { setScreen("timer"); loadData(); }}
       />
