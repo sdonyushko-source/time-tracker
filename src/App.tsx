@@ -142,19 +142,41 @@ export default function App() {
     });
 
     const now = new Date();
-    const header = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const monthName = now.toLocaleString("en-US", { month: "short" });
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dateRange = `1\u2013${lastDay} ${monthName}`;
     const rate = settings.hourlyRate;
     const currency = settings.currency;
 
-    const lines: string[] = [`Monthly Report — ${header}`, ""];
+    const fmtHM = (secs: number) => {
+      const totalMin = Math.ceil(secs / 60);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return m === 0 ? `${h}h` : `${h}h ${String(m).padStart(2, "0")}m`;
+    };
+
+    const fmtAmount = (secs: number) => {
+      const totalMin = Math.ceil(secs / 60);
+      const amount = (totalMin / 60) * rate;
+      const symbol = currency === "USD" ? "$" : currency === "EUR" ? "\u20ac" : currency === "GBP" ? "\u00a3" : currency + " ";
+      return `${amount.toFixed(0)}${symbol}`;
+    };
+
     let totalSeconds = 0;
+    const taskLines: string[] = [];
     Object.values(taskMap).forEach(({ name, seconds }) => {
-      lines.push(`${name}   ${formatTime(seconds)}   ${formatAmount((seconds / 3600) * rate, currency)}`);
+      taskLines.push(`${name} \u2013 ${fmtHM(seconds)}`);
       totalSeconds += seconds;
     });
-    lines.push("", `Total   ${formatTime(totalSeconds)}   ${formatAmount((totalSeconds / 3600) * rate, currency)}`);
 
-    await navigator.clipboard.writeText(lines.join("\n"));
+    const text = [
+      dateRange,
+      fmtHM(totalSeconds),
+      taskLines.join(", "),
+      fmtAmount(totalSeconds),
+    ].join("\n");
+
+    await navigator.clipboard.writeText(text);
     setShowMoreMenu(false);
   };
 
