@@ -94,7 +94,6 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (!window.confirm("Delete this task?")) return;
     await deleteTask(id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
