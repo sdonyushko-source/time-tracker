@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import Timer from "./components/Timer";
@@ -24,6 +24,7 @@ export default function App() {
   const [isActive, setIsActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -52,7 +53,12 @@ export default function App() {
 
   useEffect(() => {
     if (!isActive) return;
-    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    startTimeRef.current = Date.now();
+    const interval = setInterval(() => {
+      if (startTimeRef.current !== null) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 500);
     return () => clearInterval(interval);
   }, [isActive]);
 
@@ -92,10 +98,14 @@ export default function App() {
 
   const handleToggle = async () => {
     if (isActive) {
+      const elapsed = startTimeRef.current !== null
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : elapsedSeconds;
       if (activeEntryId) {
-        await stopEntry(activeEntryId, new Date().toISOString(), elapsedSeconds);
+        await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
         setActiveEntryId(null);
       }
+      startTimeRef.current = null;
       setIsActive(false);
       setElapsedSeconds(0);
       await refresh();
