@@ -165,10 +165,15 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
         {/* Header */}
-        <div style={{ width: 392 }}>
+        <div style={{ width: 392, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
             Edit time entry
           </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6L18 18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
 
         {/* Session cards */}

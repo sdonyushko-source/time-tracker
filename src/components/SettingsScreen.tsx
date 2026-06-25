@@ -130,6 +130,7 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
 
         {/* Heading */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{
           fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
@@ -139,6 +140,12 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
         }}>
           Settings
         </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6L18 18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+        </div>
 
         {/* ── Tracking block ── */}
         <div style={{
