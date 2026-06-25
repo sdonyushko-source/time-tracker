@@ -26,6 +26,8 @@ export default function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
 
+  const startTimeRef = useRef<number | null>(null);
+
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
