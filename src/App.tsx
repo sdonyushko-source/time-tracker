@@ -66,17 +66,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const today = new Date().toISOString().slice(0, 10);
-      if (today !== currentDateRef.current) {
-        currentDateRef.current = today;
-        loadData();
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [loadData]);
-
-  useEffect(() => {
     if (!isActive) return;
     if (startTimeRef.current === null) startTimeRef.current = Date.now();
     const interval = setInterval(() => {
@@ -122,6 +111,17 @@ export default function App() {
     setWeekEntries(week);
     setMonthEntries(month);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      if (today !== currentDateRef.current) {
+        currentDateRef.current = today;
+        loadData();
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const handleToggle = async () => {
     if (isActive) {
