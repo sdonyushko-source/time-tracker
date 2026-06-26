@@ -26,6 +26,7 @@ export default function App() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
+  const currentDateRef = useRef<string>(new Date().toISOString().slice(0, 10));
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -63,6 +64,17 @@ export default function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      if (today !== currentDateRef.current) {
+        currentDateRef.current = today;
+        loadData();
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   useEffect(() => {
     if (!isActive) return;
