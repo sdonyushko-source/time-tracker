@@ -64,6 +64,7 @@ const StopSVG = () => (
 
 export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect, onCopyReport, onHistory, onSettings }: TimerProps) {
   const [taskHovered, setTaskHovered] = useState(false);
+  const [menuKey, setMenuKey] = useState(0);
 
   return (
     <div style={{ position: "relative", height: 80, width: "100%" }}>
@@ -128,17 +129,17 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
           <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ThreeDotsIcon />
             <select
+              key={menuKey}
               defaultValue=""
               onChange={(e) => {
                 const v = e.target.value;
-                e.target.value = "";
+                setMenuKey(k => k + 1);
                 if (v === "copy") onCopyReport();
                 else if (v === "history") onHistory();
                 else if (v === "settings") onSettings();
               }}
               style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
             >
-              <option value="" disabled hidden />
               <option value="copy">Copy monthly report</option>
               <option value="history">Show history</option>
               <option value="settings">Settings</option>
