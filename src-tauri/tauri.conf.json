@@ -14,8 +14,8 @@
       {
         "title": "Cuckoo",
         "width": 440,
-        "height": 160,
-        "resizable": false,
+        "height": 144,
+        "resizable": true,
         "minWidth": 440,
         "maxWidth": 440,
         "decorations": true
