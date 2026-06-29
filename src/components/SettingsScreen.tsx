@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask, renameTask } from "../db";
 
 
@@ -94,6 +95,8 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   };
 
   const handleDeleteTask = async (id: string) => {
+    const ok = await confirm("Are you sure you want to delete this task?", { title: "Delete task", kind: "warning" });
+    if (!ok) return;
     await deleteTask(id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };

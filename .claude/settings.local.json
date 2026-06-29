@@ -4,7 +4,9 @@
       "Bash(npm run:*)",
       "Bash(npx tsc *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(xargs sed -i \"s/'Inter', sans-serif/'DM Sans', sans-serif/g; s/\\\\\"'Inter', sans-serif\\\\\"/\\\\\"'DM Sans', sans-serif\\\\\"/g\")",
+      "Bash(git *)"
     ]
   }
 }

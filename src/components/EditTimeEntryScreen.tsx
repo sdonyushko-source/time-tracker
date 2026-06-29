@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { Task, TimeEntry } from "../db";
 import { formatTime } from "../utils";
 import { updateEntry, deleteEntry } from "../entryOps";
@@ -113,6 +114,8 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
   };
 
   const handleDeleteSession = async (index: number) => {
+    const ok = await confirm("Are you sure you want to delete this time entry?", { title: "Delete time entry", kind: "warning" });
+    if (!ok) return;
     await deleteEntry(sessions[index].id);
     const next = sessions.filter((_, i) => i !== index);
     if (next.length === 0) { onClose(); return; }
@@ -120,6 +123,8 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
   };
 
   const handleDeleteAll = async () => {
+    const ok = await confirm("Are you sure you want to delete this time entry?", { title: "Delete time entry", kind: "warning" });
+    if (!ok) return;
     for (const s of sessions) await deleteEntry(s.id);
     onClose();
   };
