@@ -12,27 +12,15 @@ interface TodayProps {
 }
 
 const PlayIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 44 44" fill="none">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
     <defs>
-      <filter id="tpf" x="0" y="0" width="44" height="44" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-        <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-        <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-        <feOffset dy="2"/>
-        <feGaussianBlur stdDeviation="5"/>
-        <feComposite in2="hardAlpha" operator="out"/>
-        <feColorMatrix type="matrix" values="0 0 0 0 0.131328 0 0 0 0 0.595196 0 0 0 0 0.316306 0 0 0 0.3 0"/>
-        <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
-        <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
-      </filter>
-      <linearGradient id="tpg" x1="13.5" y1="11.75" x2="22" y2="32" gradientUnits="userSpaceOnUse">
+      <linearGradient id="tpg" x1="2" y1="2" x2="12" y2="24" gradientUnits="userSpaceOnUse">
         <stop stopColor="#8FD75F"/>
         <stop offset="1" stopColor="#31D877"/>
       </linearGradient>
     </defs>
-    <g filter="url(#tpf)">
-      <circle cx="22" cy="20" r="12" fill="url(#tpg)"/>
-    </g>
-    <path d="M18.5 19.443C18.5 17.038 18.5 15.8355 19.2759 15.4078C20.0519 14.9801 21.0686 15.6223 23.102 16.9065L23.9839 17.4635C25.7886 18.6033 26.691 19.1732 26.691 20C26.691 20.8268 25.7886 21.3967 23.9839 22.5365L23.102 23.0935C21.0686 24.3777 20.0519 25.0199 19.2759 24.5922C18.5 24.1645 18.5 22.962 18.5 20.557V19.443Z" fill="white"/>
+    <circle cx="12" cy="12" r="12" fill="url(#tpg)"/>
+    <path d="M9.5 10.443C9.5 8.038 9.5 6.8355 10.2759 6.4078C11.0519 5.9801 12.0686 6.6223 14.102 7.9065L14.9839 8.4635C16.7886 9.6033 17.691 10.1732 17.691 11C17.691 11.8268 16.7886 12.3967 14.9839 13.5365L14.102 14.0935C12.0686 15.3777 11.0519 16.0199 10.2759 15.5922C9.5 15.1645 9.5 13.962 9.5 11.557V10.443Z" fill="white"/>
   </svg>
 );
 
@@ -76,7 +64,7 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", lineHeight: "24px" }}>Today</span>
           <span style={{ fontSize: 16, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
-            {formatTimeRU(totalSeconds)} / {formatTimeRU(dailyGoalSeconds)} º {pct}%
+            {formatTimeRU(totalSeconds)} / {formatTimeRU(dailyGoalSeconds)} · {pct}%
           </span>
         </div>
         <div style={{ height: 12, borderRadius: 40, background: "#F6F6F6", overflow: "hidden", width: "100%" }}>
