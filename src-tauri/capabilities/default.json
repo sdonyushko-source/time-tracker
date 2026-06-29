@@ -10,8 +10,6 @@
     "sql:allow-execute",
     "sql:allow-load",
     "dialog:allow-confirm",
-    "dialog:allow-ask",
-    "clipboard-manager:allow-write-text",
-    "clipboard-manager:allow-read-text"
+    "dialog:allow-ask"
   ]
 }
