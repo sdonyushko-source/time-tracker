@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { LogicalSize } from "@tauri-apps/api/dpi";
+import { invoke } from "@tauri-apps/api/core";
 import Timer from "./components/Timer";
 import Today from "./components/Today";
 import Summary from "./components/Summary";
-import MoreMenu from "./components/MoreMenu";
 import SettingsScreen from "./components/SettingsScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
@@ -27,13 +25,13 @@ export default function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
   const currentDateRef = useRef<string>(new Date().toISOString().slice(0, 10));
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [selectedEditTaskId, setSelectedEditTaskId] = useState("");
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
@@ -79,21 +77,38 @@ export default function App() {
   }, [isActive]);
 
   useEffect(() => {
-    const appWindow = getCurrentWindow();
+    const resize = (h: number) => {
+      const capped = Math.min(h, 640);
+      invoke("resize_window", { width: 440, height: capped });
+    };
     if (screen === "settings") {
-      appWindow.setSize(new LogicalSize(440, 520));
+      resize(520);
     } else if (screen === "history") {
-      appWindow.setSize(new LogicalSize(440, 600));
+      resize(600);
     } else if (screen === "editActiveEntry") {
-      appWindow.setSize(new LogicalSize(440, 280));
+      resize(280);
     } else if (screen === "editTimeEntry") {
       const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime)).length;
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
-      appWindow.setSize(new LogicalSize(440, h));
-    } else {
-      appWindow.setSize(new LogicalSize(440, isExpanded ? 620 : 144));
+      resize(h);
+    } else if (!isExpanded) {
+      resize(144);
     }
+    // expanded case: measured after render via ReszeObserver
   }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
+
+  useEffect(() => {
+    if (screen !== "timer" || !isExpanded || !contentRef.current) return;
+    const el = contentRef.current;
+    const measure = () => {
+      const h = Math.min(el.scrollHeight + 36, 640);
+      invoke("resize_window", { width: 440, height: h });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [screen, isExpanded, todayEntries]);
 
   const refresh = useCallback(async () => {
     const [today, week, month] = await Promise.all([
@@ -208,7 +223,6 @@ export default function App() {
     ].join("\n");
 
     await navigator.clipboard.writeText(text);
-    setShowMoreMenu(false);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastVisible(true);
     toastTimerRef.current = setTimeout(() => setToastVisible(false), 2000);
@@ -262,7 +276,7 @@ export default function App() {
   }
 
   return (
-    <div style={{
+    <div ref={contentRef} style={{
       width: 440,
       background: "#FFFFFF",
       fontFamily: "'Inter', sans-serif",
@@ -296,7 +310,9 @@ export default function App() {
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           onTaskSelect={(id) => setSelectedTaskId(id)}
-          onMoreClick={() => setShowMoreMenu(!showMoreMenu)}
+          onCopyReport={handleCopyReport}
+          onHistory={() => setScreen("history")}
+          onSettings={() => setScreen("settings")}
         />
       </div>
 
@@ -338,18 +354,6 @@ export default function App() {
         <div style={{ width: 48, height: 4, borderRadius: 5, background: "#E3E5EA" }} />
       </div>
 
-      {showMoreMenu && (
-        <div
-          onClick={() => setShowMoreMenu(false)}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
-        />
-      )}
-      <MoreMenu
-        showMenu={showMoreMenu}
-        onCopyReport={handleCopyReport}
-        onHistory={() => { setShowMoreMenu(false); setScreen("history"); }}
-        onSettings={() => { setShowMoreMenu(false); setScreen("settings"); }}
-      />
     </div>
   );
 }

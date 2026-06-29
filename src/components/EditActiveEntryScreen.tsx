@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Task } from "../db";
 import { updateActiveEntry } from "../entryOps";
 
@@ -57,6 +58,7 @@ const ChevronDown = () => (
 );
 
 export default function EditActiveEntryScreen({ entryId, taskId, startTime, tasks, onClose, onSave }: EditActiveEntryScreenProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [selectedTaskId, setSelectedTaskId] = useState(taskId);
   const [dateValue, setDateValue] = useState(isoToDateValue(startTime));
   const [startDisplay, setStartDisplay] = useState(isoToTimeDisplay(startTime));
@@ -73,6 +75,19 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, task
     boxSizing: "border-box",
   };
 
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = Math.min(el.scrollHeight + 36, 640);
+      invoke("resize_window", { width: 440, height: h });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleSave = async () => {
     const startISO = displayToISO(dateValue, startDisplay);
     const task = tasks.find((t) => t.id === selectedTaskId);
@@ -81,7 +96,7 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, task
   };
 
   return (
-    <div style={{ width: 440, minHeight: 280, background: "white", display: "flex", flexDirection: "column" }}>
+    <div ref={rootRef} style={{ width: 440, background: "white", display: "flex", flexDirection: "column" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>Edit active entry</span>

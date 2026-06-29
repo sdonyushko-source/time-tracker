@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask, renameTask } from "../db";
 
@@ -51,6 +52,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [currency, setCurrency] = useState("USD");
   const [hourlyRate, setHourlyRate] = useState("30");
   const [goalH, setGoalH] = useState("06");
@@ -63,6 +65,19 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   const [renameValue, setRenameValue] = useState("");
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const newTaskInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = Math.min(el.scrollHeight + 36, 640);
+      invoke("resize_window", { width: 440, height: h });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -120,12 +135,9 @@ export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps)
   };
 
   return (
-    <div style={{
+    <div ref={rootRef} style={{
       width: 440,
-      minHeight: 520,
       background: "white",
-      borderRadius: 16,
-      overflow: "hidden",
       display: "flex",
       flexDirection: "column",
     }}>
