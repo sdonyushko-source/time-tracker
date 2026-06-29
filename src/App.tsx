@@ -94,7 +94,7 @@ export default function App() {
     } else if (!isExpanded) {
       resize(144);
     }
-    // expanded case: measured after render via ReszeObserver
+    // expanded case: measured after render via ResizeObserver
   }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
 
   useEffect(() => {
@@ -222,7 +222,18 @@ export default function App() {
       fmtAmount(totalSeconds),
     ].join("\n");
 
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastVisible(true);
     toastTimerRef.current = setTimeout(() => setToastVisible(false), 2000);
