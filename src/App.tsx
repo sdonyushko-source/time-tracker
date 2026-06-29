@@ -151,6 +151,21 @@ export default function App() {
     }
   };
 
+  const handleTaskStart = async (taskId: string) => {
+    if (isActive) {
+      const elapsed = startTimeRef.current !== null ? Math.floor((Date.now() - startTimeRef.current) / 1000) : elapsedSeconds;
+      if (activeEntryId) await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
+    }
+    const task = tasks.find((t) => t.id === taskId);
+    const id = await startEntry(taskId, task?.name ?? "", settings.hourlyRate, settings.currency);
+    setActiveEntryId(id);
+    setSelectedTaskId(taskId);
+    startTimeRef.current = Date.now();
+    setElapsedSeconds(0);
+    setIsActive(true);
+    await refresh();
+  };
+
   const handleCopyReport = async () => {
     const taskMap: Record<string, { name: string; seconds: number }> = {};
     monthEntries.forEach((e) => {
@@ -296,6 +311,8 @@ export default function App() {
               settings={settings}
               dailyGoalSeconds={settings.dailyGoalSeconds}
               onTaskClick={(taskId) => { setSelectedEditTaskId(taskId); setScreen("editTimeEntry"); }}
+              activeTaskId={isActive ? selectedTaskId : undefined}
+              onTaskStart={handleTaskStart}
             />
             <Summary
               todayEntries={todayEntries}
