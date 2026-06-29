@@ -9,7 +9,6 @@ import SettingsScreen from "./components/SettingsScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
 import EditActiveEntryScreen from "./components/EditActiveEntryScreen";
-import { formatTime, formatAmount } from "./utils";
 import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
