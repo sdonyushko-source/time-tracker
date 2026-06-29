@@ -91,7 +91,7 @@ export default function App() {
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
       appWindow.setSize(new LogicalSize(440, h));
     } else {
-      appWindow.setSize(new LogicalSize(440, isExpanded ? 620 : 120));
+      appWindow.setSize(new LogicalSize(440, isExpanded ? 620 : 144));
     }
   }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
 
