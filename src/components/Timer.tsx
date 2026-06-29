@@ -6,6 +6,7 @@ interface TimerProps {
   isActive: boolean;
   elapsedSeconds: number;
   onToggle: () => void;
+  onTimeClick?: () => void;
   tasks: Task[];
   selectedTaskId: string;
   onTaskSelect: (id: string) => void;
@@ -59,7 +60,7 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selectedTaskId, onTaskSelect, onMoreClick }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect, onMoreClick }: TimerProps) {
   const [taskHovered, setTaskHovered] = useState(false);
 
   return (
@@ -82,16 +83,20 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, tasks, selec
             onMouseEnter={() => setTaskHovered(true)}
             onMouseLeave={() => setTaskHovered(false)}
           />
-          <p style={{
-            width: 90,
-            flexShrink: 0,
-            fontSize: 20,
-            textAlign: "center",
-            color: "#181A2C",
-            fontVariantNumeric: "tabular-nums",
-            fontFamily: "'Inter', sans-serif",
-            margin: 0,
-          }}>
+          <p
+            onClick={isActive && onTimeClick ? onTimeClick : undefined}
+            style={{
+              width: 90,
+              flexShrink: 0,
+              fontSize: 20,
+              textAlign: "center",
+              color: "#181A2C",
+              fontVariantNumeric: "tabular-nums",
+              fontFamily: "'Inter', sans-serif",
+              margin: 0,
+              cursor: isActive && onTimeClick ? "pointer" : "default",
+            }}
+          >
             {formatTime(elapsedSeconds)}
           </p>
         </div>

@@ -8,6 +8,7 @@ import MoreMenu from "./components/MoreMenu";
 import SettingsScreen from "./components/SettingsScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
+import EditActiveEntryScreen from "./components/EditActiveEntryScreen";
 import { formatTime, formatAmount } from "./utils";
 import {
   Settings, Task, TimeEntry,
@@ -16,7 +17,7 @@ import {
   startEntry, stopEntry, getActiveEntry,
 } from "./db";
 
-type Screen = "timer" | "settings" | "editTimeEntry" | "history";
+type Screen = "timer" | "settings" | "editTimeEntry" | "editActiveEntry" | "history";
 
 const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
@@ -84,6 +85,8 @@ export default function App() {
       appWindow.setSize(new LogicalSize(440, 520));
     } else if (screen === "history") {
       appWindow.setSize(new LogicalSize(440, 600));
+    } else if (screen === "editActiveEntry") {
+      appWindow.setSize(new LogicalSize(440, 280));
     } else if (screen === "editTimeEntry") {
       const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime)).length;
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
@@ -215,6 +218,25 @@ export default function App() {
     );
   }
 
+  if (screen === "editActiveEntry" && activeEntryId) {
+    const activeEntry = todayEntries.find((e) => e.id === activeEntryId) ?? null;
+    return (
+      <EditActiveEntryScreen
+        entryId={activeEntryId}
+        taskId={selectedTaskId}
+        startTime={activeEntry?.startTime ?? new Date().toISOString()}
+        tasks={tasks}
+        onClose={() => setScreen("timer")}
+        onSave={(newTaskId: string, newStartISO: string) => {
+          setSelectedTaskId(newTaskId);
+          startTimeRef.current = Date.now() - (Date.now() - new Date(newStartISO).getTime());
+          setScreen("timer");
+          refresh();
+        }}
+      />
+    );
+  }
+
   if (screen === "editTimeEntry") {
     return (
       <EditTimeEntryScreen
@@ -256,6 +278,7 @@ export default function App() {
           isActive={isActive}
           elapsedSeconds={elapsedSeconds}
           onToggle={handleToggle}
+          onTimeClick={() => setScreen("editActiveEntry")}
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           onTaskSelect={(id) => setSelectedTaskId(id)}
