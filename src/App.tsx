@@ -34,6 +34,8 @@ export default function App() {
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [selectedEditTaskId, setSelectedEditTaskId] = useState("");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
@@ -190,6 +192,9 @@ export default function App() {
 
     await navigator.clipboard.writeText(text);
     setShowMoreMenu(false);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastVisible(true);
+    toastTimerRef.current = setTimeout(() => setToastVisible(false), 2000);
   };
 
   if (screen === "history") {
@@ -227,6 +232,25 @@ export default function App() {
       fontFamily: "'Inter', sans-serif",
       position: "relative",
     }}>
+      <div style={{
+        position: "fixed",
+        top: 16,
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: "#181A2C",
+        color: "white",
+        borderRadius: 8,
+        padding: "8px 16px",
+        fontSize: 14,
+        fontFamily: "'Inter', sans-serif",
+        whiteSpace: "nowrap",
+        zIndex: 999,
+        pointerEvents: "none",
+        opacity: toastVisible ? 1 : 0,
+        transition: "opacity 0.25s ease",
+      }}>
+        Report copied
+      </div>
       <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 80 }}>
         <Timer
           isActive={isActive}
