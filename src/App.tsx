@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Timer from "./components/Timer";
 import Today from "./components/Today";
-import Summary from "./components/Summary";
 import SettingsScreen from "./components/SettingsScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
@@ -339,12 +338,8 @@ export default function App() {
               onTaskClick={(taskId) => { setSelectedEditTaskId(taskId); setScreen("editTimeEntry"); }}
               activeTaskId={isActive ? selectedTaskId : undefined}
               onTaskStart={handleTaskStart}
-            />
-            <Summary
-              todayEntries={todayEntries}
               weekEntries={weekEntries}
               monthEntries={monthEntries}
-              settings={settings}
             />
           </div>
         </div>

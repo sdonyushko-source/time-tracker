@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TimeEntry, Settings } from "../db";
-import { formatTime, formatTimeRU } from "../utils";
+import { formatTime, formatTimeRU, formatAmount } from "../utils";
 
 interface TodayProps {
   entries: TimeEntry[];
@@ -9,6 +9,8 @@ interface TodayProps {
   activeTaskId?: string;
   onTaskClick?: (taskId: string) => void;
   onTaskStart?: (taskId: string) => void;
+  weekEntries: TimeEntry[];
+  monthEntries: TimeEntry[];
 }
 
 const PlayIcon = () => (
@@ -24,7 +26,11 @@ const PlayIcon = () => (
   </svg>
 );
 
-export default function Today({ entries, settings: _settings, dailyGoalSeconds, activeTaskId, onTaskClick, onTaskStart }: TodayProps) {
+function sumSeconds(entries: TimeEntry[]): number {
+  return entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+}
+
+export default function Today({ entries, settings, dailyGoalSeconds, activeTaskId, onTaskClick, onTaskStart, weekEntries, monthEntries }: TodayProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const totalSeconds = entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
@@ -44,6 +50,17 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
   const tasks = Object.entries(taskMap)
     .map(([id, t]) => ({ id, ...t }))
     .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
+
+  const weekSec = sumSeconds(weekEntries);
+  const monthSec = sumSeconds(monthEntries);
+  const rate = settings.hourlyRate;
+  const currency = settings.currency;
+
+  const summaryRows = [
+    { label: "Today",      seconds: totalSeconds, amount: (totalSeconds / 3600) * rate, bold: false },
+    { label: "This week",  seconds: weekSec,      amount: (weekSec      / 3600) * rate, bold: false },
+    { label: "This month", seconds: monthSec,     amount: (monthSec     / 3600) * rate, bold: true  },
+  ];
 
   return (
     <>
@@ -72,8 +89,8 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
         </div>
       </div>
 
-      <div className="today-task-list" style={{ display: "flex", flexDirection: "column", width: "100%", maxHeight: "calc(4 * 40px + 8px)", overflowY: "auto", scrollbarWidth: "none", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
-        {tasks.map((task, i) => {
+      <div className="today-task-list" style={{ display: "flex", flexDirection: "column", width: "100%", maxHeight: "calc(4 * 40px + 8px)", overflowY: "auto", scrollbarWidth: "none" }}>
+        {tasks.map((task) => {
           const isHovered = hoveredId === task.id;
           const isActive = task.id === activeTaskId;
           return (
@@ -94,7 +111,6 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
                 flexShrink: 0,
                 boxSizing: "border-box",
                 cursor: onTaskClick ? "pointer" : "default",
-                marginBottom: i === tasks.length - 1 ? 8 : 0,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
@@ -126,6 +142,28 @@ export default function Today({ entries, settings: _settings, dailyGoalSeconds, 
             </div>
           );
         })}
+      </div>
+
+      <div style={{ borderTop: "1px solid #E3E5EA", margin: "0 -8px", paddingTop: 12, paddingBottom: 12, paddingLeft: 20, paddingRight: 20, display: "flex", flexDirection: "column", gap: 8, background: "#F6F6F6", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
+        {summaryRows.map((row) => (
+          <div key={row.label} style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 24,
+            fontSize: 16,
+            color: "#181A2C",
+            lineHeight: "24px",
+            fontWeight: row.bold ? 500 : 400,
+          }}>
+            <span style={{ width: 111, flexShrink: 0 }}>{row.label}</span>
+            <span style={{ width: 102, flexShrink: 0, textAlign: "right", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>
+              {formatTime(row.seconds)}
+            </span>
+            <span style={{ width: 99, flexShrink: 0, textAlign: "right" }}>
+              {formatAmount(row.amount, currency)}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
     </>
