@@ -80,12 +80,12 @@ export default function Today({ entries, settings, dailyGoalSeconds, activeTaskI
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 12px", width: 376 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", lineHeight: "24px" }}>Today</span>
-          <span style={{ fontSize: 16, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+          <span style={{ fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
             {formatTimeRU(totalSeconds)} / {formatTimeRU(dailyGoalSeconds)} · {pct}%
           </span>
         </div>
-        <div style={{ height: 12, borderRadius: 40, background: "#F6F6F6", overflow: "hidden", width: "100%" }}>
-          <div style={{ height: 12, width: `${pct}%`, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
+        <div style={{ height: 8, borderRadius: 40, background: "#F6F6F6", overflow: "hidden", width: "100%" }}>
+          <div style={{ height: 8, width: `${pct}%`, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
         </div>
       </div>
 
@@ -114,7 +114,7 @@ export default function Today({ entries, settings, dailyGoalSeconds, activeTaskI
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 16, color: "#181A2C", lineHeight: "24px", flexShrink: 1 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 15, color: "#181A2C", lineHeight: "24px", flexShrink: 1 }}>
                   {task.name}
                 </span>
                 {isActive && (
@@ -135,7 +135,7 @@ export default function Today({ entries, settings, dailyGoalSeconds, activeTaskI
                     <PlayIcon />
                   </button>
                 )}
-                <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 16, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
                   {formatTime(task.totalSeconds)}
                 </span>
               </div>

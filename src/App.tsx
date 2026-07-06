@@ -91,7 +91,7 @@ export default function App() {
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
       resize(h);
     } else if (!isExpanded) {
-      resize(144);
+      resize(128);
     }
     // expanded case: measured after render via ResizeObserver
   }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
@@ -311,7 +311,7 @@ export default function App() {
       }}>
         Report copied
       </div>
-      <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 80 }}>
+      <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 64 }}>
         <Timer
           isActive={isActive}
           elapsedSeconds={elapsedSeconds}
@@ -326,7 +326,7 @@ export default function App() {
         />
       </div>
 
-      <div style={{ height: 80 }} />
+      <div style={{ height: 64 }} />
 
       {isExpanded && (
         <div style={{ padding: "8px 24px 0" }}>

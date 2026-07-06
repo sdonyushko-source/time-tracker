@@ -62,48 +62,16 @@ const StopSVG = () => (
   </svg>
 );
 
-const CopyIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <path d="M16.9832 16.9832C16.9371 18.5468 16.7649 19.4777 16.1213 20.1213C15.2426 21 13.8284 21 11 21H9C6.17157 21 4.75736 21 3.87868 20.1213C3 19.2426 3 17.8284 3 15V13C3 10.1716 3 8.75736 3.87868 7.87868C4.52229 7.23507 5.45324 7.06288 7.01682 7.01682C7.58789 7 8.24334 7 9 7H11C13.8284 7 15.2426 7 16.1213 7.87868C17 8.75736 17 10.1716 17 13V15C17 15.7567 17 16.4121 16.9832 16.9832ZM7.01682 7.01682C7.06288 5.45324 7.23507 4.52229 7.87868 3.87868C8.75736 3 10.1716 3 13 3H15C17.8284 3 19.2426 3 20.1213 3.87868C21 4.75736 21 6.17157 21 9V11C21 13.8284 21 15.2426 20.1213 16.1213C19.4777 16.7649 18.5468 16.9371 16.9832 16.9832" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-
-const HistoryIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <path d="M12 6V12L16 15" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <path d="M12 22C17.5228 22 22 17.5229 22 12C22 9.2386 20.8807 6.7386 19.0711 4.92896" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="1 3"/>
-    <path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C14.7614 2 17.2614 3.11929 19.0711 4.92893" stroke="#181A2C" strokeWidth="1.5"/>
-  </svg>
-);
-
-const SettingsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <path d="M18 7.44995C18 9.10681 16.6569 10.45 15 10.45C13.3431 10.45 12 9.10681 12 7.44995M18 7.44995C18 5.7931 16.6569 4.44995 15 4.44995C13.3431 4.44995 12 5.7931 12 7.44995M18 7.44995H21M12 7.44995H3M6 16.45C6 18.1068 7.34315 19.45 9 19.45C10.6569 19.45 12 18.1068 12 16.45M6 16.45C6 14.7931 7.34315 13.45 9 13.45C10.6569 13.45 12 14.7931 12 16.45M6 16.45H3M12 16.45H21" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-
 export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect, onCopyReport, onHistory, onSettings }: TimerProps) {
   const [taskHovered, setTaskHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const menuItems = [
-    { label: "Copy monthly report", icon: <CopyIcon />, action: onCopyReport },
-    { label: "Show history", icon: <HistoryIcon />, action: onHistory },
-    { label: "Settings", icon: <SettingsIcon />, action: onSettings },
-  ];
+  const [menuKey, setMenuKey] = useState(0);
 
   return (
-    <div style={{ position: "relative", height: 80, width: "100%" }}>
-      {menuOpen && (
-        <div
-          onClick={() => setMenuOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 98 }}
-        />
-      )}
+    <div style={{ position: "relative", height: 64, width: "100%" }}>
       <div style={{
         position: "absolute",
         left: 24,
-        top: 16,
+        top: 8,
         width: 392,
         display: "flex",
         alignItems: "center",
@@ -158,53 +126,24 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
               <StopSVG />
             </div>
           </button>
-
           <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div
-              onClick={() => setMenuOpen(!menuOpen)}
-              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+            <ThreeDotsIcon />
+            <select
+              key={menuKey}
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.target.value;
+                setMenuKey(k => k + 1);
+                if (v === "copy") onCopyReport();
+                else if (v === "history") onHistory();
+                else if (v === "settings") onSettings();
+              }}
+              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
             >
-              <ThreeDotsIcon />
-            </div>
-            {menuOpen && (
-              <div style={{
-                position: "absolute",
-                top: 28,
-                right: 0,
-                background: "#FFFFFF",
-                border: "1px solid #E3E5EA",
-                borderRadius: 10,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-                zIndex: 99,
-                minWidth: 210,
-                overflow: "hidden",
-              }}>
-                {menuItems.map((item) => (
-                  <div
-                    key={item.label}
-                    onClick={() => { setMenuOpen(false); item.action(); }}
-                    style={{
-                      padding: "10px 16px",
-                      lineHeight: "18px",
-                      fontWeight: 400,
-                      fontSize: 14,
-                      fontFamily: "'Inter', sans-serif",
-                      color: "#181A2C",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#F6F6F6")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            )}
+              <option value="copy">Copy monthly report</option>
+              <option value="history">Show history</option>
+              <option value="settings">Settings</option>
+            </select>
           </div>
         </div>
       </div>
