@@ -43,7 +43,7 @@ function formatDateLabel(date: string, today: string, yesterday: string): string
   return d.getDate() + " " + d.toLocaleString("en-US", { month: "long" });
 }
 
-export default function MainContent({ last7Entries, settings, activeTaskId, activeEntryId, elapsedSeconds, isActive, onTaskClick, onTaskStart }: MainContentProps) {
+export default function MainContent({ last7Entries, settings, activeTaskId, activeEntryId: _activeEntryId, elapsedSeconds: _elapsedSeconds, isActive, onTaskClick, onTaskStart }: MainContentProps) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const today = getLocalDate();
@@ -76,32 +76,21 @@ export default function MainContent({ last7Entries, settings, activeTaskId, acti
           taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
         });
 
-        if (isToday && isActive && activeTaskId) {
-          const activeEntry = last7Entries.find((e) => e.id === activeEntryId);
-          if (taskMap[activeTaskId]) {
-            taskMap[activeTaskId].totalSeconds += elapsedSeconds;
-          } else {
-            taskMap[activeTaskId] = {
-              name: activeEntry?.taskNameSnapshot ?? "",
-              totalSeconds: elapsedSeconds,
-              count: 0,
-              firstStartTime: activeEntry?.startTime ?? new Date().toISOString(),
-            };
-          }
-        }
-
         const tasks = Object.entries(taskMap)
           .map(([id, t]) => ({ id, ...t }))
           .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
 
-        const completedSeconds = dayEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
-        const totalSeconds = completedSeconds + (isToday && isActive ? elapsedSeconds : 0);
+        const totalSeconds = dayEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
         const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
+
         const pastColor = "#949599";
 
         return (
           <div key={date}>
-            {dayIdx > 0 && <div style={{ height: 1, background: "#E3E5EA", margin: "8px 0" }} />}
+            {dayIdx > 0 && (
+              <div style={{ height: 1, background: "#E3E5EA", margin: "8px 0" }} />
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px" }}>
               <span style={{ fontSize: 16, fontWeight: 500, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px" }}>
                 {formatDateLabel(date, today, yesterday)}
@@ -116,33 +105,76 @@ export default function MainContent({ last7Entries, settings, activeTaskId, acti
                 </span>
               )}
             </div>
+
             {isToday && (
               <div style={{ height: 8, borderRadius: 40, background: "#F6F6F6", overflow: "hidden", marginBottom: 8 }}>
                 <div style={{ height: 8, width: `${pct}%`, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
               </div>
             )}
+
             {tasks.length === 0 && isToday && (
-              <div style={{ padding: "4px 0 8px", color: pastColor, fontSize: 15, lineHeight: "24px" }}>No tasks today</div>
+              <div style={{ padding: "4px 0 8px", color: pastColor, fontSize: 15, lineHeight: "24px" }}>
+                No tasks today
+              </div>
             )}
+
             {tasks.map((task) => {
               const isTaskActive = task.id === activeTaskId && isActive && isToday;
               const hoverKey = `${date}-${task.id}`;
               const isHovered = hoveredKey === hoverKey;
               return (
-                <div key={task.id} onClick={() => onTaskClick(task.id, date)} onMouseEnter={() => setHoveredKey(hoverKey)} onMouseLeave={() => setHoveredKey(null)}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 40, padding: "0 8px", borderRadius: 8, background: isHovered ? "#F6F6F6" : "transparent", cursor: "pointer", margin: "0 -8px", boxSizing: "border-box" }}>
+                <div
+                  key={task.id}
+                  onClick={() => onTaskClick(task.id, date)}
+                  onMouseEnter={() => setHoveredKey(hoverKey)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    height: 40,
+                    padding: "0 8px",
+                    borderRadius: 8,
+                    background: isHovered ? "#F6F6F6" : "transparent",
+                    cursor: "pointer",
+                    margin: "0 -8px",
+                    boxSizing: "border-box",
+                  }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 15, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px", flexShrink: 1 }}>{task.name}</span>
-                    {isTaskActive && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />}
-                    {task.count > 1 && <span style={{ padding: "0 4px", background: isHovered ? "white" : "#F6F6F6", borderRadius: 4, fontSize: 12, fontWeight: 500, color: "#908F8F", flexShrink: 0, textAlign: "center", lineHeight: "16px" }}>{task.count}</span>}
+                    <span style={{
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      fontSize: 15, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px", flexShrink: 1,
+                    }}>
+                      {task.name}
+                    </span>
+                    {isTaskActive && (
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />
+                    )}
+                    {task.count > 1 && (
+                      <span style={{
+                        padding: "0 4px", background: isHovered ? "white" : "#F6F6F6",
+                        borderRadius: 4, fontSize: 12, fontWeight: 500, color: "#908F8F",
+                        flexShrink: 0, textAlign: "center", lineHeight: "16px",
+                      }}>
+                        {task.count}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     {isHovered && !isTaskActive && (
-                      <button onClick={(e) => { e.stopPropagation(); onTaskStart(task.id); }} style={{ width: 24, height: 24, background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onTaskStart(task.id); }}
+                        style={{ width: 24, height: 24, background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      >
                         <PlayIcon />
                       </button>
                     )}
-                    <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 15, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{
+                      width: 72, flexShrink: 0, textAlign: "right",
+                      fontSize: 15, color: isToday ? "#181A2C" : pastColor,
+                      lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums",
+                    }}>
                       {formatTime(task.totalSeconds)}
                     </span>
                   </div>

@@ -203,7 +203,7 @@ export async function getLast7DaysEntries(): Promise<TimeEntry[]> {
   const d = new Date();
   d.setDate(d.getDate() - 6);
   const from = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  return db.select<TimeEntry[]>("SELECT * FROM time_entries WHERE date >= ? ORDER BY date DESC, startTime ASC", [from]);
+  return db.select<TimeEntry[]>("SELECT * FROM time_entries WHERE date >= ? AND endTime IS NOT NULL ORDER BY date DESC, startTime ASC", [from]);
 }
 
 export async function getAllEntries(): Promise<TimeEntry[]> {
