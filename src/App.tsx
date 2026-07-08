@@ -43,6 +43,10 @@ export default function App() {
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
 
   useEffect(() => {
+    invoke("resize_window", { width: 440, height: 500 });
+  }, []);
+
+  useEffect(() => {
     (async () => {
       await initDB();
       const [s, t, last7, week, month, active] = await Promise.all([
