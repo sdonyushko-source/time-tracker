@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Timer from "./components/Timer";
-import Today from "./components/Today";
+import MainContent from "./components/MainContent";
 import SettingsScreen from "./components/SettingsScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
@@ -9,44 +9,49 @@ import EditActiveEntryScreen from "./components/EditActiveEntryScreen";
 import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
-  getTodayEntries, getWeekEntries, getMonthEntries,
+  getLast7DaysEntries, getWeekEntries, getMonthEntries,
   startEntry, stopEntry, getActiveEntry,
 } from "./db";
+import { formatAmount } from "./utils";
 
 type Screen = "timer" | "settings" | "editTimeEntry" | "editActiveEntry" | "history";
 
 const DEFAULT_SETTINGS: Settings = { hourlyRate: 30, currency: "USD", dailyGoalSeconds: 21600 };
 
+function getLocalDate(): string {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("timer");
   const [isActive, setIsActive] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
-  const currentDateRef = useRef<string>(new Date().toISOString().slice(0, 10));
-  const contentRef = useRef<HTMLDivElement>(null);
+  const currentDateRef = useRef<string>(getLocalDate());
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [selectedEditTaskId, setSelectedEditTaskId] = useState("");
+  const [selectedEditDate, setSelectedEditDate] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
+  const [last7Entries, setLast7Entries] = useState<TimeEntry[]>([]);
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
 
   useEffect(() => {
     (async () => {
       await initDB();
-      const [s, t, today, week, month, active] = await Promise.all([
-        getSettings(), getTasks(), getTodayEntries(), getWeekEntries(), getMonthEntries(),
+      const [s, t, last7, week, month, active] = await Promise.all([
+        getSettings(), getTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(),
         getActiveEntry(),
       ]);
       setSettings(s);
       setTasks(t);
-      setTodayEntries(today);
+      setLast7Entries(last7);
       setWeekEntries(week);
       setMonthEntries(month);
 
@@ -77,8 +82,7 @@ export default function App() {
 
   useEffect(() => {
     const resize = (h: number) => {
-      const capped = Math.min(h, 640);
-      invoke("resize_window", { width: 440, height: capped });
+      invoke("resize_window", { width: 440, height: Math.min(h, 640) });
     };
     if (screen === "settings") {
       resize(520);
@@ -87,52 +91,38 @@ export default function App() {
     } else if (screen === "editActiveEntry") {
       resize(280);
     } else if (screen === "editTimeEntry") {
-      const n = todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime)).length;
+      const n = last7Entries.filter((e) => e.taskId === selectedEditTaskId && e.date === selectedEditDate && e.endTime !== null).length;
       const h = n <= 1 ? 380 : Math.min(640, 196 + n * 168);
       resize(h);
-    } else if (!isExpanded) {
-      resize(128);
+    } else {
+      resize(500);
     }
-    // expanded case: measured after render via ResizeObserver
-  }, [screen, isExpanded, selectedEditTaskId, todayEntries]);
-
-  useEffect(() => {
-    if (screen !== "timer" || !isExpanded || !contentRef.current) return;
-    const el = contentRef.current;
-    const measure = () => {
-      const h = Math.min(el.scrollHeight + 36, 640);
-      invoke("resize_window", { width: 440, height: h });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [screen, isExpanded, todayEntries]);
+  }, [screen, selectedEditTaskId, selectedEditDate, last7Entries]);
 
   const refresh = useCallback(async () => {
-    const [today, week, month] = await Promise.all([
-      getTodayEntries(), getWeekEntries(), getMonthEntries(),
+    const [last7, week, month] = await Promise.all([
+      getLast7DaysEntries(), getWeekEntries(), getMonthEntries(),
     ]);
-    setTodayEntries(today);
+    setLast7Entries(last7);
     setWeekEntries(week);
     setMonthEntries(month);
   }, []);
 
   const loadData = useCallback(async () => {
-    const [s, t, today, week, month] = await Promise.all([
-      getSettings(), getTasks(), getTodayEntries(), getWeekEntries(), getMonthEntries(),
+    const [s, t, last7, week, month] = await Promise.all([
+      getSettings(), getTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(),
     ]);
     setSettings(s);
     setTasks(t);
     setSelectedTaskId((prev) => (t.find((task) => task.id === prev) ? prev : t.length ? t[0].id : ""));
-    setTodayEntries(today);
+    setLast7Entries(last7);
     setWeekEntries(week);
     setMonthEntries(month);
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalDate();
       if (today !== currentDateRef.current) {
         currentDateRef.current = today;
         loadData();
@@ -189,7 +179,7 @@ export default function App() {
     const now = new Date();
     const monthName = now.toLocaleString("en-US", { month: "short" });
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const dateRange = `1\u2013${lastDay} ${monthName}`;
+    const dateRange = `1–${lastDay} ${monthName}`;
     const rate = settings.hourlyRate;
     const currency = settings.currency;
 
@@ -203,23 +193,18 @@ export default function App() {
     const fmtAmount = (secs: number) => {
       const totalMin = Math.ceil(secs / 60);
       const amount = (totalMin / 60) * rate;
-      const symbol = currency === "USD" ? "$" : currency === "EUR" ? "\u20ac" : currency === "GBP" ? "\u00a3" : currency + " ";
+      const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency + " ";
       return `${amount.toFixed(0)}${symbol}`;
     };
 
     let totalSeconds = 0;
     const taskLines: string[] = [];
     Object.values(taskMap).forEach(({ name, seconds }) => {
-      taskLines.push(`${name} \u2013 ${fmtHM(seconds)}`);
+      taskLines.push(`${name} – ${fmtHM(seconds)}`);
       totalSeconds += seconds;
     });
 
-    const text = [
-      dateRange,
-      fmtHM(totalSeconds),
-      taskLines.join(", "),
-      fmtAmount(totalSeconds),
-    ].join("\n");
+    const text = [dateRange, fmtHM(totalSeconds), taskLines.join(", "), fmtAmount(totalSeconds)].join("\n");
 
     try {
       await navigator.clipboard.writeText(text);
@@ -239,25 +224,15 @@ export default function App() {
   };
 
   if (screen === "history") {
-    return (
-      <HistoryScreen
-        activeEntryId={activeEntryId}
-        onClose={() => setScreen("timer")}
-      />
-    );
+    return <HistoryScreen activeEntryId={activeEntryId} onClose={() => setScreen("timer")} />;
   }
 
   if (screen === "settings") {
-    return (
-      <SettingsScreen
-        onClose={() => { setScreen("timer"); loadData(); }}
-        onSave={() => { setScreen("timer"); loadData(); }}
-      />
-    );
+    return <SettingsScreen onClose={() => { setScreen("timer"); loadData(); }} onSave={() => { setScreen("timer"); loadData(); }} />;
   }
 
   if (screen === "editActiveEntry" && activeEntryId) {
-    const activeEntry = todayEntries.find((e) => e.id === activeEntryId) ?? null;
+    const activeEntry = last7Entries.find((e) => e.id === activeEntryId) ?? null;
     return (
       <EditActiveEntryScreen
         entryId={activeEntryId}
@@ -276,90 +251,44 @@ export default function App() {
   }
 
   if (screen === "editTimeEntry") {
+    const editEntries = last7Entries
+      .filter((e) => e.taskId === selectedEditTaskId && e.date === selectedEditDate && e.endTime !== null)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
     return (
       <EditTimeEntryScreen
-        entries={todayEntries.filter((e) => e.taskId === selectedEditTaskId && e.endTime !== null).sort((a, b) => a.startTime.localeCompare(b.startTime))}
+        entries={editEntries}
         tasks={tasks}
         onClose={() => { setScreen("timer"); loadData(); }}
       />
     );
   }
 
+  const today = getLocalDate();
+  const todaySeconds = last7Entries
+    .filter((e) => e.date === today && e.endTime !== null)
+    .reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const weekSeconds = weekEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const monthSeconds = monthEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const rate = settings.hourlyRate;
+  const currency = settings.currency;
+
   return (
-    <div ref={contentRef} style={{
-      width: 440,
-      background: "#FFFFFF",
-      fontFamily: "'Inter', sans-serif",
-      position: "relative",
-    }}>
-      <div style={{
-        position: "fixed",
-        top: 16,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "#181A2C",
-        color: "white",
-        borderRadius: 8,
-        padding: "8px 16px",
-        fontSize: 14,
-        fontFamily: "'Inter', sans-serif",
-        whiteSpace: "nowrap",
-        zIndex: 999,
-        pointerEvents: "none",
-        opacity: toastVisible ? 1 : 0,
-        transition: "opacity 0.25s ease",
-      }}>
+    <div style={{ width: 440, height: 500, background: "#FFFFFF", fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: "#181A2C", color: "white", borderRadius: 8, padding: "8px 16px", fontSize: 14, fontFamily: "'Inter', sans-serif", whiteSpace: "nowrap", zIndex: 999, pointerEvents: "none", opacity: toastVisible ? 1 : 0, transition: "opacity 0.25s ease" }}>
         Report copied
       </div>
-      <div style={{ position: "absolute", top: 0, left: 0, width: 440, height: 64 }}>
-        <Timer
-          isActive={isActive}
-          elapsedSeconds={elapsedSeconds}
-          onToggle={handleToggle}
-          onTimeClick={() => setScreen("editActiveEntry")}
-          tasks={tasks}
-          selectedTaskId={selectedTaskId}
-          onTaskSelect={(id) => setSelectedTaskId(id)}
-          onCopyReport={handleCopyReport}
-          onHistory={() => setScreen("history")}
-          onSettings={() => setScreen("settings")}
-        />
+      <div style={{ flexShrink: 0, height: 64 }}>
+        <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} onCopyReport={handleCopyReport} onHistory={() => setScreen("history")} onSettings={() => setScreen("settings")} />
       </div>
-
-      <div style={{ height: 64 }} />
-
-      {isExpanded && (
-        <div style={{ padding: "8px 24px 0" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Today
-              entries={todayEntries}
-              settings={settings}
-              dailyGoalSeconds={settings.dailyGoalSeconds}
-              onTaskClick={(taskId) => { setSelectedEditTaskId(taskId); setScreen("editTimeEntry"); }}
-              activeTaskId={isActive ? selectedTaskId : undefined}
-              onTaskStart={handleTaskStart}
-              weekEntries={weekEntries}
-              monthEntries={monthEntries}
-            />
-          </div>
-        </div>
-      )}
-
-      <div
-        onClick={() => setIsExpanded(!isExpanded)}
-        style={{
-          width: "100%",
-          height: 24,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          marginTop: 0,
-        }}
-      >
-        <div style={{ width: 48, height: 4, borderRadius: 5, background: "#E3E5EA" }} />
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 24px", scrollbarWidth: "none" }}>
+        <MainContent last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} activeEntryId={activeEntryId} elapsedSeconds={elapsedSeconds} isActive={isActive} onTaskClick={(taskId, date) => { setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
       </div>
-
+      <div style={{ flexShrink: 0, borderTop: "1px solid #E3E5EA", padding: "10px 24px", display: "flex", alignItems: "center", background: "#FFFFFF" }}>
+        <span style={{ flex: 1, fontSize: 15, color: "#181A2C", lineHeight: "24px" }}>Earned</span>
+        <span style={{ width: 96, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((todaySeconds / 3600) * rate, currency)}</span>
+        <span style={{ width: 96, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((weekSeconds / 3600) * rate, currency)}</span>
+        <span style={{ width: 96, textAlign: "right", fontSize: 15, fontWeight: 500, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((monthSeconds / 3600) * rate, currency)}</span>
+      </div>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default function Today({ entries, settings, dailyGoalSeconds, activeTaskI
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 12px", width: 376 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 16, fontWeight: 500, color: "#181A2C", lineHeight: "24px" }}>Today</span>
-          <span style={{ fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+          <span style={{ fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
             {formatTimeRU(totalSeconds)} / {formatTimeRU(dailyGoalSeconds)} · {pct}%
           </span>
         </div>
@@ -135,7 +135,7 @@ export default function Today({ entries, settings, dailyGoalSeconds, activeTaskI
                     <PlayIcon />
                   </button>
                 )}
-                <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
                   {formatTime(task.totalSeconds)}
                 </span>
               </div>
