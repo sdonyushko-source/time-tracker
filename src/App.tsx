@@ -273,7 +273,7 @@ export default function App() {
   const currency = settings.currency;
 
   return (
-    <div style={{ width: 440, height: 500, background: "#FFFFFF", fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ width: 440, height: "100vh", background: "#FFFFFF", fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: "#181A2C", color: "white", borderRadius: 8, padding: "8px 16px", fontSize: 14, fontFamily: "'Inter', sans-serif", whiteSpace: "nowrap", zIndex: 999, pointerEvents: "none", opacity: toastVisible ? 1 : 0, transition: "opacity 0.25s ease" }}>
         Report copied
       </div>
@@ -283,7 +283,7 @@ export default function App() {
       <div style={{ flex: 1, overflowY: "auto", padding: "0 24px", scrollbarWidth: "none" }}>
         <MainContent last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} activeEntryId={activeEntryId} elapsedSeconds={elapsedSeconds} isActive={isActive} onTaskClick={(taskId, date) => { setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
       </div>
-      <div style={{ flexShrink: 0, borderTop: "1px solid #E3E5EA", padding: "10px 24px", display: "flex", alignItems: "center", background: "#FFFFFF" }}>
+      <div style={{ flexShrink: 0, borderTop: "1px solid #E3E5EA", padding: "10px 24px", display: "flex", alignItems: "center", background: "#F6F6F6" }}>
         <span style={{ flex: 1, fontSize: 15, color: "#181A2C", lineHeight: "24px" }}>Earned</span>
         <span style={{ width: 96, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((todaySeconds / 3600) * rate, currency)}</span>
         <span style={{ width: 96, textAlign: "right", fontSize: 15, color: "#181A2C", lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((weekSeconds / 3600) * rate, currency)}</span>

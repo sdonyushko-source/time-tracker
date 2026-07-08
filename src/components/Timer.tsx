@@ -64,10 +64,19 @@ const StopSVG = () => (
 
 export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect, onCopyReport, onHistory, onSettings }: TimerProps) {
   const [taskHovered, setTaskHovered] = useState(false);
-  const [menuKey, setMenuKey] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const menuItems = [
+    { label: "Copy monthly report", action: onCopyReport },
+    { label: "Show history", action: onHistory },
+    { label: "Settings", action: onSettings },
+  ];
 
   return (
     <div style={{ position: "relative", height: 64, width: "100%" }}>
+      {menuOpen && (
+        <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100 }} />
+      )}
       <div style={{
         position: "absolute",
         left: 24,
@@ -127,23 +136,21 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
             </div>
           </button>
           <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <ThreeDotsIcon />
-            <select
-              key={menuKey}
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.target.value;
-                setMenuKey(k => k + 1);
-                if (v === "copy") onCopyReport();
-                else if (v === "history") onHistory();
-                else if (v === "settings") onSettings();
-              }}
-              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
-            >
-              <option value="copy">Copy monthly report</option>
-              <option value="history">Show history</option>
-              <option value="settings">Settings</option>
-            </select>
+            <button onClick={() => setMenuOpen(o => !o)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24 }}>
+              <ThreeDotsIcon />
+            </button>
+            {menuOpen && (
+              <div style={{ position: "absolute", top: 28, right: 0, background: "white", borderRadius: 12, boxShadow: "0px 4px 24px rgba(0,0,0,0.12)", zIndex: 200, minWidth: 192, padding: "4px 0", overflow: "hidden" }}>
+                {menuItems.map((item) => (
+                  <div key={item.label} onClick={() => { setMenuOpen(false); item.action(); }}
+                    style={{ padding: "10px 16px", fontSize: 15, color: "#181A2C", fontFamily: "'Inter', sans-serif", cursor: "pointer", whiteSpace: "nowrap" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#F6F6F6")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
