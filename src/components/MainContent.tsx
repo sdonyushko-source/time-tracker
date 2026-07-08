@@ -60,7 +60,7 @@ export default function MainContent({ last7Entries, settings, activeTaskId, acti
   const allDates = [...new Set([today, ...Object.keys(dateMap)])].sort((a, b) => b.localeCompare(a));
 
   return (
-    <div>
+    <div style={{ paddingBottom: 16 }}>
       {allDates.map((date, dayIdx) => {
         const isToday = date === today;
         const dayEntries = dateMap[date] ?? [];
@@ -101,7 +101,7 @@ export default function MainContent({ last7Entries, settings, activeTaskId, acti
 
         return (
           <div key={date}>
-            {dayIdx > 0 && <div style={{ height: 1, background: "#E3E5EA", margin: "4px 0" }} />}
+            {dayIdx > 0 && <div style={{ height: 1, background: "#E3E5EA", margin: "8px 0" }} />}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px" }}>
               <span style={{ fontSize: 16, fontWeight: 500, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px" }}>
                 {formatDateLabel(date, today, yesterday)}
