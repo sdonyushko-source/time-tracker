@@ -1,0 +1,60 @@
+name: Build and publish latest .dmg
+
+on:
+  push:
+    branches:
+      - main
+      - claude/adoring-gates-9h8ynx
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14 # Apple Silicon, matches the aarch64 build produced locally
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build app (release)
+        run: npm run tauri build
+
+      - name: Locate .dmg
+        id: dmg
+        run: |
+          dmg_path=$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)
+          if [ -z "$dmg_path" ]; then
+            echo "No .dmg produced" >&2
+            exit 1
+          fi
+          echo "path=$dmg_path" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$dmg_path")" >> "$GITHUB_OUTPUT"
+
+      # Single rolling "latest" release — deleting any previous one first
+      # (rather than relying on gh release create's own overwrite) keeps this
+      # correct even if the .dmg's filename changes later (e.g. a version
+      # bump), instead of leaving stale assets from old filenames behind.
+      - name: Replace "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest "${{ steps.dmg.outputs.path }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Cuckoo (latest build)" \
+            --notes "Automated build from commit ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}. Not code-signed/notarized — after downloading, clear the quarantine flag before opening: xattr -cr ~/Downloads/${{ steps.dmg.outputs.name }}" \
+            --prerelease
