@@ -42,6 +42,22 @@ export interface TimeEntry {
   updatedAt: string;
 }
 
+export interface Schedule {
+  id: string;
+  taskId: string;
+  // Snapshot, same convention as TimeEntry.taskNameSnapshot — renaming the
+  // task later doesn't retroactively change already-created rules.
+  taskNameSnapshot: string;
+  // Comma-separated day indices, JS Date.getDay() convention (0=Sun..6=Sat)
+  // so the schedule checker in App.tsx can compare against getDay() directly
+  // without remapping.
+  weekdays: string;
+  startTime: string; // "HH:MM"
+  durationMinutes: number;
+  autoStart: number; // 0/1
+  createdAt: string;
+}
+
 function localDate(): string {
   const d = new Date();
   return (
@@ -75,6 +91,7 @@ export async function initDB(): Promise<void> {
   await _db.execute(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY DEFAULT 1, hourlyRate REAL, currency TEXT, dailyGoalSeconds INTEGER)`);
   await _db.execute(`CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, name TEXT NOT NULL, archived INTEGER DEFAULT 0, createdAt TEXT NOT NULL)`);
   await _db.execute(`CREATE TABLE IF NOT EXISTS time_entries (id TEXT PRIMARY KEY, taskId TEXT NOT NULL, taskNameSnapshot TEXT, date TEXT, startTime TEXT, endTime TEXT, durationSeconds INTEGER, hourlyRateSnapshot REAL, currencySnapshot TEXT, createdAt TEXT, updatedAt TEXT)`);
+  await _db.execute(`CREATE TABLE IF NOT EXISTS schedules (id TEXT PRIMARY KEY, taskId TEXT NOT NULL, taskNameSnapshot TEXT, weekdays TEXT NOT NULL, startTime TEXT NOT NULL, durationMinutes INTEGER NOT NULL, autoStart INTEGER DEFAULT 0, createdAt TEXT NOT NULL)`);
 
   // CREATE TABLE IF NOT EXISTS doesn't retrofit columns onto an already-existing
   // settings table, so add newer columns individually and ignore "already exists".
@@ -258,6 +275,51 @@ export async function getAllEntries(): Promise<TimeEntry[]> {
   return db.select<TimeEntry[]>(
     "SELECT * FROM time_entries ORDER BY date DESC, startTime DESC"
   );
+}
+
+export async function getSchedules(): Promise<Schedule[]> {
+  const db = await getDB();
+  return db.select<Schedule[]>("SELECT * FROM schedules ORDER BY createdAt DESC");
+}
+
+export async function createSchedule(
+  taskId: string,
+  taskName: string,
+  weekdays: string,
+  startTime: string,
+  durationMinutes: number,
+  autoStart: boolean
+): Promise<string> {
+  const db = await getDB();
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db.execute(
+    `INSERT INTO schedules (id, taskId, taskNameSnapshot, weekdays, startTime, durationMinutes, autoStart, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, taskId, taskName, weekdays, startTime, durationMinutes, autoStart ? 1 : 0, now]
+  );
+  return id;
+}
+
+export async function updateSchedule(
+  id: string,
+  taskId: string,
+  taskName: string,
+  weekdays: string,
+  startTime: string,
+  durationMinutes: number,
+  autoStart: boolean
+): Promise<void> {
+  const db = await getDB();
+  await db.execute(
+    `UPDATE schedules SET taskId = ?, taskNameSnapshot = ?, weekdays = ?, startTime = ?, durationMinutes = ?, autoStart = ? WHERE id = ?`,
+    [taskId, taskName, weekdays, startTime, durationMinutes, autoStart ? 1 : 0, id]
+  );
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  const db = await getDB();
+  await db.execute("DELETE FROM schedules WHERE id = ?", [id]);
 }
 
 export async function stopEntry(

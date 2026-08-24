@@ -60,6 +60,7 @@ fn show_more_menu(app: tauri::AppHandle) {
                 &PredefinedMenuItem::separator(&app)?,
                 &MenuItem::with_id(&app, "statistics", "Statistics", true, None::<&str>)?,
                 &MenuItem::with_id(&app, "history", "History", true, None::<&str>)?,
+                &MenuItem::with_id(&app, "schedule", "Schedule", true, None::<&str>)?,
                 &PredefinedMenuItem::separator(&app)?,
                 &MenuItem::with_id(&app, "task_manager", "Task manager", true, None::<&str>)?,
                 &MenuItem::with_id(&app, "settings", "Settings", true, None::<&str>)?,
@@ -124,6 +125,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(SqlBuilder::default().build())
         .manage(TrayTimerState(Arc::new(AtomicU64::new(0))))
         .setup(|_app| {

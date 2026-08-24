@@ -11,6 +11,7 @@
     "sql:allow-load",
     "dialog:allow-confirm",
     "dialog:allow-ask",
+    "notification:default",
     "core:window:allow-set-theme",
     "core:window:allow-start-dragging",
     "core:window:allow-internal-toggle-maximize"

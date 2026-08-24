@@ -11,6 +11,7 @@ import SettingsScreen from "./components/SettingsScreen";
 import TaskManagerScreen from "./components/TaskManagerScreen";
 import HistoryScreen from "./components/HistoryScreen";
 import StatisticsScreen from "./components/StatisticsScreen";
+import ScheduleScreen from "./components/ScheduleScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
 import EditActiveEntryScreen from "./components/EditActiveEntryScreen";
 import Tooltip from "./components/Tooltip";
@@ -18,11 +19,12 @@ import {
   Settings, Task, TimeEntry,
   initDB, getSettings, getTasks,
   getLast7DaysEntries, getWeekEntries, getMonthEntries, getAllEntries, getRecentDaysEntries,
-  startEntry, stopEntry, getActiveEntry,
+  startEntry, stopEntry, getActiveEntry, getSchedules,
 } from "./db";
 import { formatAmount, formatTimeRU, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange } from "./utils";
+import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 
-type Screen = "timer" | "settings" | "taskManager" | "editTimeEntry" | "editActiveEntry" | "history" | "statistics";
+type Screen = "timer" | "settings" | "taskManager" | "editTimeEntry" | "editActiveEntry" | "history" | "statistics" | "schedule";
 
 const DEFAULT_SETTINGS: Settings = {
   hourlyRate: 30,
@@ -92,6 +94,29 @@ function AppContent() {
   // state (monthEntries/settings) and is redefined every render — without
   // re-subscribing the native-event listener on every render to do it.
   const handleCopyReportRef = useRef<() => void>(() => {});
+  // Same stale-closure problem as handleCopyReportRef, for the schedule
+  // checker below (registered once, empty deps) calling handleTaskStart /
+  // stopActive (which close over changing state and are redefined every
+  // render).
+  const handleTaskStartRef = useRef<(taskId: string) => Promise<string | undefined>>(async () => undefined);
+  const stopActiveRef = useRef<() => void>(() => {});
+  // Mirrors activeEntryId as a ref so the schedule checker (registered once,
+  // empty deps) can read the *current* value without re-subscribing.
+  const activeEntryIdRef = useRef<string | null>(null);
+  // Tracks which schedules already fired their 5-minutes-before notification
+  // / autostart today, keyed "${scheduleId}:${date}" — naturally resets
+  // itself once the date rolls over since the key changes.
+  const notifiedScheduleRef = useRef<Set<string>>(new Set());
+  const autoStartedScheduleRef = useRef<Set<string>>(new Set());
+  // Set when a schedule auto-starts a task, cleared once that entry is
+  // stopped (by the schedule itself or manually). Holding the entryId means
+  // the scheduled stop only ever affects the exact entry it started — if the
+  // user switches tasks or stops manually in the meantime, this becomes
+  // stale and the duration check below just no-ops instead of stopping
+  // whatever happens to be running later.
+  const scheduledStopRef = useRef<{ entryId: string; stopAtMs: number } | null>(null);
+
+  useEffect(() => { activeEntryIdRef.current = activeEntryId; }, [activeEntryId]);
 
   // Runs on every screen/mode change — covers initial mount, navigating to
   // any sub-screen (always standard size), and returning to the main screen
@@ -111,6 +136,7 @@ function AppContent() {
         case "copy_report": handleCopyReportRef.current(); break;
         case "statistics": setScreen("statistics"); break;
         case "history": setScreen("history"); break;
+        case "schedule": setScreen("schedule"); break;
         case "task_manager": setScreen("taskManager"); break;
         case "settings": setScreen("settings"); break;
       }
@@ -211,20 +237,104 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [loadData]);
 
+  // Shared stop path — used by handleToggle (manual Stop) and by the
+  // schedule checker below (auto-stop once a rule's duration elapses), so
+  // both go through the exact same stopEntry call and isActive/activeStartMs
+  // state updates that drive the native tray timer.
+  const stopActive = async () => {
+    const elapsed = startTimeRef.current !== null
+      ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+      : elapsedSeconds;
+    if (activeEntryId) {
+      await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
+      setActiveEntryId(null);
+    }
+    startTimeRef.current = null;
+    setActiveStartMs(null);
+    setIsActive(false);
+    setElapsedSeconds(0);
+    await refresh();
+  };
+  stopActiveRef.current = stopActive;
+
+  // Checks recurring schedules once a minute: fires a "starts in 5 minutes"
+  // notification (autoStart on or off — same either way); at the exact start
+  // minute, if autoStart is on, starts the task via the same stop-then-start
+  // path as clicking a task row (handleTaskStart); and once the rule's
+  // duration has elapsed, stops it again via the same stopActive path as a
+  // manual Stop — all through the same startEntry/stopEntry snapshot logic
+  // and isActive/activeStartMs state updates that drive the native tray
+  // timer, instead of a separate parallel tick implementation.
+  useEffect(() => {
+    const checkSchedules = async () => {
+      // Duration elapsed for the entry a schedule auto-started — stop it,
+      // but only if it's still the same entry (guards against the user
+      // having switched tasks or stopped manually in the meantime).
+      if (scheduledStopRef.current && Date.now() >= scheduledStopRef.current.stopAtMs) {
+        const { entryId } = scheduledStopRef.current;
+        scheduledStopRef.current = null;
+        if (activeEntryIdRef.current === entryId) stopActiveRef.current();
+      }
+
+      const schedules = await getSchedules();
+      if (!schedules.length) return;
+      const now = new Date();
+      const today = getLocalDate();
+      const weekday = now.getDay();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      for (const s of schedules) {
+        if (!s.weekdays.split(",").map(Number).includes(weekday)) continue;
+        const [sh, sm] = s.startTime.split(":").map(Number);
+        const startMinutes = sh * 60 + sm;
+        const key = `${s.id}:${today}`;
+
+        if (nowMinutes === startMinutes - 5 && !notifiedScheduleRef.current.has(key)) {
+          notifiedScheduleRef.current.add(key);
+          let granted = await isPermissionGranted();
+          if (!granted) granted = (await requestPermission()) === "granted";
+          if (granted) sendNotification({ title: "Cuckoo", body: `${s.taskNameSnapshot} starts in 5 minutes` });
+        }
+
+        if (nowMinutes === startMinutes && s.autoStart && !autoStartedScheduleRef.current.has(key)) {
+          autoStartedScheduleRef.current.add(key);
+          const entryId = await handleTaskStartRef.current(s.taskId);
+          // stopAtMs is derived from the rule's *nominal* start minute (today
+          // at sh:sm:00), not from whenever this tick actually fired — so it
+          // lands on an exact minute boundary regardless of the tick's own
+          // sub-second jitter, and the aligned ticks below then catch it on
+          // time instead of up to a minute late.
+          if (entryId) {
+            const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm, 0, 0);
+            scheduledStopRef.current = { entryId, stopAtMs: startDate.getTime() + s.durationMinutes * 60000 };
+          }
+        }
+      }
+    };
+
+    // A plain setInterval(fn, 60000) started on mount ticks 60s apart from
+    // whatever moment the app happened to launch — not from real clock
+    // minute boundaries — so a schedule's start/stop could fire up to ~59s
+    // late. This instead re-schedules itself via setTimeout for just past
+    // (+250ms, so Date() reliably reads the new minute) each next :00.
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+    const scheduleNextTick = () => {
+      const delay = 60000 - (Date.now() % 60000) + 250;
+      timeoutId = setTimeout(async () => {
+        if (cancelled) return;
+        await checkSchedules();
+        scheduleNextTick();
+      }, delay);
+    };
+    checkSchedules();
+    scheduleNextTick();
+    return () => { cancelled = true; clearTimeout(timeoutId); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleToggle = async () => {
     if (isActive) {
-      const elapsed = startTimeRef.current !== null
-        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-        : elapsedSeconds;
-      if (activeEntryId) {
-        await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
-        setActiveEntryId(null);
-      }
-      startTimeRef.current = null;
-      setActiveStartMs(null);
-      setIsActive(false);
-      setElapsedSeconds(0);
-      await refresh();
+      await stopActive();
     } else {
       if (!selectedTaskId) return;
       const task = tasks.find((t) => t.id === selectedTaskId);
@@ -237,7 +347,7 @@ function AppContent() {
     }
   };
 
-  const handleTaskStart = async (taskId: string) => {
+  const handleTaskStart = async (taskId: string): Promise<string> => {
     if (isActive) {
       const elapsed = startTimeRef.current !== null ? Math.floor((Date.now() - startTimeRef.current) / 1000) : elapsedSeconds;
       if (activeEntryId) await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
@@ -251,7 +361,9 @@ function AppContent() {
     setElapsedSeconds(0);
     setIsActive(true);
     await refresh();
+    return id;
   };
+  handleTaskStartRef.current = handleTaskStart;
 
   const handleHistoryEntryClick = async (taskId: string, date: string) => {
     const all = await getAllEntries();
@@ -292,6 +404,10 @@ function AppContent() {
 
   if (screen === "statistics") {
     return <StatisticsScreen settings={settings} onClose={() => setScreen("timer")} />;
+  }
+
+  if (screen === "schedule") {
+    return <ScheduleScreen onClose={() => setScreen("timer")} />;
   }
 
   if (screen === "settings") {
