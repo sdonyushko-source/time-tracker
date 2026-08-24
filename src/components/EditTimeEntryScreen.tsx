@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { Task, TimeEntry } from "../db";
 import { formatTime } from "../utils";
 import { updateEntry, deleteEntry } from "../entryOps";
+import { useTheme } from "../ThemeContext";
+import ButtonBar from "./ButtonBar";
+import TimeInput from "./TimeInput";
+import TitleBarSpacer from "./TitleBarSpacer";
 
 interface EditTimeEntryScreenProps {
   entries: TimeEntry[];
@@ -50,17 +54,6 @@ function formatDateDisplay(dateValue: string): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
-// Parse free-text time input → "HH:MM", clamp hours ≤23, minutes ≤59
-function parseTimeInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 4);
-  if (!digits) return "00:00";
-  const hStr = digits.length === 1 ? "0" + digits[0] : digits.slice(0, 2);
-  const mStr = digits.length <= 2 ? "00" : digits.length === 3 ? digits[2] + "0" : digits.slice(2, 4);
-  const h = Math.min(23, parseInt(hStr) || 0);
-  const m = Math.min(59, parseInt(mStr) || 0);
-  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
-}
-
 // Compute duration in seconds from two HH:MM display values; 0 if invalid.
 // If end <= start, assumes midnight crossing and adds 24h to end.
 function computeSessionSeconds(dateValue: string, start: string, end: string): number {
@@ -82,20 +75,21 @@ const TrashIcon = ({ color }: { color: string }) => (
   </svg>
 );
 
-const CalendarIcon = () => (
+const CalendarIcon = ({ color }: { color: string }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M6.85714 5.57143H5.57143C4.15127 5.57143 3 6.7227 3 8.14286V18.4286C3 19.8487 4.15127 21 5.57143 21H18.4286C19.8487 21 21 19.8487 21 18.4286V8.14286C21 6.7227 19.8487 5.57143 18.4286 5.57143H17.1429M6.85714 5.57143V3M6.85714 5.57143V8.14286M6.85714 5.57143H17.1429M17.1429 5.57143V3M17.1429 5.57143V8.14286" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-    <path d="M7.5 12.6428H7.51286M12 12.6428H12.0129M16.5 12.6428H16.5129M7.5 16.5H7.51286M12 16.5H12.0129" stroke="#181A2C" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M6.85714 5.57143H5.57143C4.15127 5.57143 3 6.7227 3 8.14286V18.4286C3 19.8487 4.15127 21 5.57143 21H18.4286C19.8487 21 21 19.8487 21 18.4286V8.14286C21 6.7227 19.8487 5.57143 18.4286 5.57143H17.1429M6.85714 5.57143V3M6.85714 5.57143V8.14286M6.85714 5.57143H17.1429M17.1429 5.57143V3M17.1429 5.57143V8.14286" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M7.5 12.6428H7.51286M12 12.6428H12.0129M16.5 12.6428H16.5129M7.5 16.5H7.51286M12 16.5H12.0129" stroke={color} strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
-const ChevronDown = () => (
+const ChevronDown = ({ color }: { color: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M2 5L8 11L14 5" stroke="#181A2C" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M2 5L8 11L14 5" stroke={color} strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTimeEntryScreenProps) {
+  const { colors } = useTheme();
   const [sessions, setSessions] = useState<SessionEdit[]>(() =>
     entries.map((e) => ({
       id: e.id,
@@ -143,182 +137,165 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
     onClose();
   };
 
+  // Window-level, not a div onKeyDown: bubbling-based handlers only fire
+  // when focus is inside this screen's DOM subtree, so Enter pressed with
+  // nothing focused (e.g. right after closing the date picker) was silently
+  // swallowed.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") handleSave();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   const fieldBase: React.CSSProperties = {
-    height: 48,
-    background: "white",
-    border: "1px solid #E3E5EA",
+    height: 32,
+    background: colors.inputBg,
+    border: `1px solid ${colors.border}`,
     borderRadius: 8,
     fontSize: 16,
-    color: "#181A2C",
+    color: colors.textPrimary,
     fontFamily: "'Inter', sans-serif",
     outline: "none",
     boxSizing: "border-box",
   };
 
   const cardStyle: React.CSSProperties = {
-    marginTop: 12,
-    background: "#F6F6F6",
+    background: colors.cardBg,
     borderRadius: 12,
-    padding: 12,
+    padding: isMultiple ? 12 : 8,
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: isMultiple ? 8 : 4,
   };
 
   return (
-    <div style={{ width: 440, minHeight: 380, background: "white", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
+    <div
+      style={{ width: 440, height: "100vh", background: colors.pageBg, display: "flex", flexDirection: "column", overflow: "hidden", boxSizing: "border-box", position: "relative" }}
+    >
+      <TitleBarSpacer />
 
-        {/* Header */}
-        <div style={{ width: 392, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: "#181A2C" }}>
-            Edit time entry
-          </span>
-          <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6L18 18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
+      {/* Header */}
+      <div style={{ flexShrink: 0, padding: "24px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: colors.textPrimary }}>
+          Edit time entry
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6L18 18" stroke={colors.textPrimary} strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
 
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 84px" }}>
         {/* Session cards */}
-        {sessions.map((session, i) => (
-          <div key={session.id} style={cardStyle}>
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          {sessions.map((session, i) => (
+            <div key={session.id} style={cardStyle}>
 
-            {/* Session header — only for multiple entries */}
-            {isMultiple && (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
-                  Session {i + 1}
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", width: 90, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-                    {formatTime(computeSessionSeconds(session.dateValue, session.startDisplay, session.endDisplay))}
+              {/* Session header — only for multiple entries */}
+              {isMultiple && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: colors.textPrimary, lineHeight: "24px" }}>
+                    Session {i + 1}
                   </span>
-                  <button
-                    onClick={() => handleDeleteSession(i)}
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: colors.textPrimary, width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                      {formatTime(computeSessionSeconds(session.dateValue, session.startDisplay, session.endDisplay))}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteSession(i)}
+                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}
+                    >
+                      <TrashIcon color={colors.textPrimary} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
+                {/* Task dropdown */}
+                <div style={{ ...fieldBase, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px 0 16px" }}>
+                  <span style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 16,
+                    color: colors.textPrimary,
+                    fontFamily: "'Inter', sans-serif",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    paddingRight: 12,
+                    pointerEvents: "none",
+                  }}>
+                    {tasks.find((t) => t.id === session.taskId)?.name ?? ""}
+                  </span>
+                  <div style={{ flexShrink: 0, pointerEvents: "none" }}>
+                    <ChevronDown color={colors.textPrimary} />
+                  </div>
+                  <select
+                    value={session.taskId}
+                    onChange={(e) => updateSession(i, { taskId: e.target.value })}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      opacity: 0,
+                      cursor: "pointer",
+                      width: "100%",
+                      height: "100%",
+                      fontSize: 16,
+                      fontFamily: "'Inter', sans-serif",
+                    }}
                   >
-                    <TrashIcon color="#181A2C" />
-                  </button>
+                    {tasks.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date + start — end */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {/* Date — custom visual + native picker overlay */}
+                  <div style={{ width: 186, flexShrink: 0, position: "relative" }}>
+                    <div style={{ ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", pointerEvents: "none" }}>
+                      <span style={{ fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif" }}>
+                        {formatDateDisplay(session.dateValue)}
+                      </span>
+                      <CalendarIcon color={colors.textPrimary} />
+                    </div>
+                    <input
+                      type="date"
+                      value={session.dateValue}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => updateSession(i, { dateValue: e.target.value })}
+                      style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
+                    />
+                  </div>
+                  {/* Start — separator — End */}
+                  <div style={{ display: "flex", flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 0 }}>
+                    <TimeInput
+                      value={session.startDisplay}
+                      onChange={(v) => updateSession(i, { startDisplay: v })}
+                      style={{ ...fieldBase, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
+                    />
+                    <div style={{ width: 8, height: 1, backgroundColor: colors.border, flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+                    <TimeInput
+                      value={session.endDisplay}
+                      onChange={(v) => updateSession(i, { endDisplay: v })}
+                      style={{ ...fieldBase, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
+                    />
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Task dropdown */}
-            <div style={{ ...fieldBase, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-              <span style={{
-                flex: 1,
-                minWidth: 0,
-                fontSize: 16,
-                color: "#181A2C",
-                fontFamily: "'Inter', sans-serif",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                paddingRight: 12,
-                pointerEvents: "none",
-              }}>
-                {tasks.find((t) => t.id === session.taskId)?.name ?? ""}
-              </span>
-              <div style={{ flexShrink: 0, pointerEvents: "none" }}>
-                <ChevronDown />
-              </div>
-              <select
-                value={session.taskId}
-                onChange={(e) => updateSession(i, { taskId: e.target.value })}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  opacity: 0,
-                  cursor: "pointer",
-                  width: "100%",
-                  height: "100%",
-                  fontSize: 16,
-                  fontFamily: "'Inter', sans-serif",
-                }}
-              >
-                {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
             </div>
-
-            {/* Date + start — end */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* Date — custom visual + native picker overlay */}
-              <div style={{ flex: 1, position: "relative" }}>
-                <div style={{ ...fieldBase, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", pointerEvents: "none" }}>
-                  <span style={{ fontSize: 16, color: "#181A2C", fontFamily: "'Inter', sans-serif" }}>
-                    {formatDateDisplay(session.dateValue)}
-                  </span>
-                  <CalendarIcon />
-                </div>
-                <input
-                  type="date"
-                  value={session.dateValue}
-                  max={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => updateSession(i, { dateValue: e.target.value })}
-                  style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
-                />
-              </div>
-              {/* Start — separator — End */}
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0 }}>
-                <input
-                  type="text"
-                  value={session.startDisplay}
-                  onChange={(e) => {
-                    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
-                    updateSession(i, { startDisplay: d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d });
-                  }}
-                  onClick={(e) => e.currentTarget.select()}
-                  onBlur={() => updateSession(i, { startDisplay: parseTimeInput(session.startDisplay) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
-                />
-                <div style={{ width: 8, height: 1, backgroundColor: "#C7C9CD", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
-                <input
-                  type="text"
-                  value={session.endDisplay}
-                  onChange={(e) => {
-                    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
-                    updateSession(i, { endDisplay: d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d });
-                  }}
-                  onClick={(e) => e.currentTarget.select()}
-                  onBlur={() => updateSession(i, { endDisplay: parseTimeInput(session.endDisplay) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ ...fieldBase, width: 88, minWidth: 0, padding: "0 12px", textAlign: "center" }}
-                />
-              </div>
-            </div>
-
-          </div>
-        ))}
-
-        {/* Bottom buttons */}
-        <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            onClick={handleDeleteAll}
-            style={{ width: 48, height: 48, background: "#F6F6F6", borderRadius: 8, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-          >
-            <TrashIcon color="#FF5429" />
-          </button>
-          <div style={{ flex: 1 }} />
-          <button
-            onClick={onClose}
-            style={{ width: 96, height: 48, background: "#F6F6F6", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'Inter', sans-serif", color: "#181A2C", cursor: "pointer" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{ width: 96, height: 48, background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)", boxShadow: "0px 4px 10px rgba(33,152,81,0.3)", borderRadius: 8, border: "none", fontSize: 16, fontFamily: "'Inter', sans-serif", color: "white", cursor: "pointer" }}
-          >
-            Save
-          </button>
+          ))}
         </div>
 
       </div>
+
+      <ButtonBar onCancel={onClose} onSave={handleSave} onDelete={handleDeleteAll} />
     </div>
   );
 }

@@ -1,20 +1,17 @@
 import { useState } from "react";
-import { TimeEntry, Settings } from "../db";
+import { TimeEntry } from "../db";
 import { formatTime, formatTimeRU } from "../utils";
+import { useTheme } from "../ThemeContext";
 
 interface MainContentProps {
-  last7Entries: TimeEntry[];
-  settings: Settings;
-  activeTaskId: string;
-  activeEntryId: string | null;
-  elapsedSeconds: number;
-  isActive: boolean;
+  recentEntries: TimeEntry[];
+  onDateClick: (date: string) => void;
   onTaskClick: (taskId: string, date: string) => void;
   onTaskStart: (taskId: string) => void;
 }
 
-const PlayIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+const PlayIcon = ({ size = 24 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none">
     <defs>
       <linearGradient id="mcpg" x1="2" y1="2" x2="12" y2="24" gradientUnits="userSpaceOnUse">
         <stop stopColor="#8FD75F" /><stop offset="1" stopColor="#31D877" />
@@ -25,162 +22,150 @@ const PlayIcon = () => (
   </svg>
 );
 
-function getLocalDate(): string {
-  const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
-
 function getYesterdayDate(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
-function formatDateLabel(date: string, today: string, yesterday: string): string {
-  if (date === today) return "Today";
+function formatDateLabel(date: string, yesterday: string): string {
   if (date === yesterday) return "Yesterday";
   const d = new Date(date + "T12:00:00");
-  return d.getDate() + " " + d.toLocaleString("en-US", { month: "long" });
+  const weekday = d.toLocaleString("en-US", { weekday: "short" });
+  return `${weekday}, ${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })}`;
 }
 
-export default function MainContent({ last7Entries, settings, activeTaskId, activeEntryId: _activeEntryId, elapsedSeconds: _elapsedSeconds, isActive, onTaskClick, onTaskStart }: MainContentProps) {
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+// Shows the 5 most recent past days that actually have entries (see
+// getRecentDaysEntries — reaches back past 7 calendar days if there are
+// gaps, so the list doesn't under-fill). The most recent of those gets its
+// own muted task breakdown (same click-to-edit / hover-to-start mechanic as
+// TodaySection, just visually de-emphasized) so the page doesn't feel empty
+// right after midnight. Older days stay a plain date + total-time row each
+// — that detail lives in History instead.
+export default function MainContent({ recentEntries, onDateClick, onTaskClick, onTaskStart }: MainContentProps) {
+  const { colors } = useTheme();
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
 
-  const today = getLocalDate();
   const yesterday = getYesterdayDate();
-  const { dailyGoalSeconds } = settings;
 
-  const dateMap: Record<string, TimeEntry[]> = {};
-  last7Entries.forEach((e) => {
+  const totals: Record<string, number> = {};
+  recentEntries.forEach((e) => {
     if (!e.endTime) return;
-    if (!dateMap[e.date]) dateMap[e.date] = [];
-    dateMap[e.date].push(e);
+    totals[e.date] = (totals[e.date] ?? 0) + (e.durationSeconds ?? 0);
   });
 
-  const allDates = [...new Set([today, ...Object.keys(dateMap)])].sort((a, b) => b.localeCompare(a));
+  const pastDates = Object.keys(totals).sort((a, b) => b.localeCompare(a));
+
+  if (pastDates.length === 0) return null;
+
+  const lastActiveDate = pastDates[0];
+
+  const lastActiveTaskMap: Record<string, { name: string; totalSeconds: number; count: number; firstStartTime: string }> = {};
+  recentEntries.forEach((e) => {
+    if (!e.endTime || e.date !== lastActiveDate) return;
+    if (!lastActiveTaskMap[e.taskId]) {
+      lastActiveTaskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, count: 0, firstStartTime: e.startTime };
+    } else if (e.startTime < lastActiveTaskMap[e.taskId].firstStartTime) {
+      lastActiveTaskMap[e.taskId].firstStartTime = e.startTime;
+    }
+    lastActiveTaskMap[e.taskId].count += 1;
+    lastActiveTaskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
+  });
+  const lastActiveTasks = Object.entries(lastActiveTaskMap)
+    .map(([id, t]) => ({ id, ...t }))
+    .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
 
   return (
-    <div style={{ paddingBottom: 16 }}>
-      {allDates.map((date, dayIdx) => {
-        const isToday = date === today;
-        const dayEntries = dateMap[date] ?? [];
-
-        const taskMap: Record<string, { name: string; totalSeconds: number; count: number; firstStartTime: string }> = {};
-        dayEntries.forEach((e) => {
-          if (!taskMap[e.taskId]) {
-            taskMap[e.taskId] = { name: e.taskNameSnapshot, totalSeconds: 0, count: 0, firstStartTime: e.startTime };
-          } else if (e.startTime < taskMap[e.taskId].firstStartTime) {
-            taskMap[e.taskId].firstStartTime = e.startTime;
-          }
-          taskMap[e.taskId].count += 1;
-          taskMap[e.taskId].totalSeconds += e.durationSeconds ?? 0;
-        });
-
-        const tasks = Object.entries(taskMap)
-          .map(([id, t]) => ({ id, ...t }))
-          .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
-
-        const totalSeconds = dayEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
-        const pct = dailyGoalSeconds > 0 ? Math.min(100, Math.round((totalSeconds / dailyGoalSeconds) * 100)) : 0;
-
-        const pastColor = "#949599";
-
+    <div style={{ display: "flex", flexDirection: "column", paddingBottom: 16 }}>
+      {pastDates.map((date, dayIdx) => {
+        const isLastActive = date === lastActiveDate;
+        const isHovered = hoveredDate === date;
         return (
           <div key={date}>
-            {dayIdx > 0 && (
-              <div style={{ height: 1, background: "#E3E5EA", margin: "8px 0" }} />
-            )}
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px" }}>
-              <span style={{ fontSize: 16, fontWeight: 500, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px" }}>
-                {formatDateLabel(date, today, yesterday)}
+            {dayIdx > 0 && <div style={{ height: 1, background: colors.border, margin: "4px 16px" }} />}
+            <div
+              onClick={() => onDateClick(date)}
+              onMouseEnter={() => setHoveredDate(date)}
+              onMouseLeave={() => setHoveredDate(null)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 12px",
+                borderRadius: 8,
+                background: isHovered ? colors.cardBg : "transparent",
+                cursor: "pointer",
+                boxSizing: "border-box",
+                transition: "background 0.3s ease",
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 500, color: colors.textSecondary, lineHeight: "16px" }}>
+                {formatDateLabel(date, yesterday)}
               </span>
-              {isToday ? (
-                <span style={{ fontSize: 16, color: "#181A2C", lineHeight: "24px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>
-                  {formatTimeRU(totalSeconds)} / {formatTimeRU(dailyGoalSeconds)} · {pct}%
-                </span>
-              ) : (
-                <span style={{ fontSize: 16, color: pastColor, lineHeight: "24px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>
-                  {formatTimeRU(totalSeconds)}
-                </span>
-              )}
+              <span style={{ fontSize: 12, fontWeight: isLastActive ? 500 : 600, color: colors.textSecondary, lineHeight: "16px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>
+                {formatTimeRU(totals[date])}
+              </span>
             </div>
-
-            {isToday && (
-              <div style={{ height: 8, borderRadius: 40, background: "#F6F6F6", overflow: "hidden", marginBottom: 8 }}>
-                <div style={{ height: 8, width: `${pct}%`, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
+            {isLastActive && lastActiveTasks.length > 0 && (
+              <div style={{ paddingBottom: 8 }}>
+                {lastActiveTasks.map((task) => {
+                  const isTaskHovered = hoveredTaskId === task.id;
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => onTaskClick(task.id, lastActiveDate)}
+                      onMouseEnter={() => setHoveredTaskId(task.id)}
+                      onMouseLeave={() => setHoveredTaskId(null)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "4px 12px",
+                        borderRadius: 8,
+                        background: isTaskHovered ? colors.cardBg : "transparent",
+                        cursor: "pointer",
+                        boxSizing: "border-box",
+                        transition: "background 0.3s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: colors.textSecondary, lineHeight: "16px", flexShrink: 1 }}>
+                          {task.name}
+                        </span>
+                        {task.count > 1 && (
+                          <span style={{
+                            padding: "0 4px", background: isTaskHovered ? colors.inputBg : colors.badgeBg,
+                            borderRadius: 4, fontSize: 12, fontWeight: 500, color: colors.badgeText,
+                            flexShrink: 0, textAlign: "center", lineHeight: "16px",
+                            transition: "background 0.3s ease",
+                          }}>
+                            {task.count}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onTaskStart(task.id); }}
+                          style={{
+                            width: 24, height: 24, margin: "-4px 0", background: "none", border: "none", padding: 0, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            opacity: isTaskHovered ? 1 : 0,
+                            pointerEvents: isTaskHovered ? "auto" : "none",
+                            transition: "opacity 0.3s ease",
+                          }}
+                        >
+                          <PlayIcon />
+                        </button>
+                        <span style={{ width: 72, flexShrink: 0, textAlign: "right", fontSize: 12, color: colors.textSecondary, lineHeight: "16px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+                          {formatTime(task.totalSeconds)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
-
-            {tasks.length === 0 && isToday && (
-              <div style={{ padding: "4px 0 8px", color: pastColor, fontSize: 15, lineHeight: "24px" }}>
-                No tasks today
-              </div>
-            )}
-
-            {tasks.map((task) => {
-              const isTaskActive = task.id === activeTaskId && isActive && isToday;
-              const hoverKey = `${date}-${task.id}`;
-              const isHovered = hoveredKey === hoverKey;
-              return (
-                <div
-                  key={task.id}
-                  onClick={() => onTaskClick(task.id, date)}
-                  onMouseEnter={() => setHoveredKey(hoverKey)}
-                  onMouseLeave={() => setHoveredKey(null)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    height: 40,
-                    padding: "0 8px",
-                    borderRadius: 8,
-                    background: isHovered ? "#F6F6F6" : "transparent",
-                    cursor: "pointer",
-                    margin: "0 -8px",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
-                    <span style={{
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      fontSize: 15, color: isToday ? "#181A2C" : pastColor, lineHeight: "24px", flexShrink: 1,
-                    }}>
-                      {task.name}
-                    </span>
-                    {isTaskActive && (
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />
-                    )}
-                    {task.count > 1 && (
-                      <span style={{
-                        padding: "0 4px", background: isHovered ? "white" : "#F6F6F6",
-                        borderRadius: 4, fontSize: 12, fontWeight: 500, color: "#908F8F",
-                        flexShrink: 0, textAlign: "center", lineHeight: "16px",
-                      }}>
-                        {task.count}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    {isHovered && !isTaskActive && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onTaskStart(task.id); }}
-                        style={{ width: 24, height: 24, background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                      >
-                        <PlayIcon />
-                      </button>
-                    )}
-                    <span style={{
-                      width: 72, flexShrink: 0, textAlign: "right",
-                      fontSize: 15, color: isToday ? "#181A2C" : pastColor,
-                      lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums",
-                    }}>
-                      {formatTime(task.totalSeconds)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         );
       })}

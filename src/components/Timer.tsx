@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Task } from "../db";
 import TaskPicker from "./TaskPicker";
+import { useTheme } from "../ThemeContext";
 
 interface TimerProps {
   isActive: boolean;
@@ -10,9 +11,6 @@ interface TimerProps {
   tasks: Task[];
   selectedTaskId: string;
   onTaskSelect: (id: string) => void;
-  onCopyReport: () => void;
-  onHistory: () => void;
-  onSettings: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -22,15 +20,7 @@ function formatTime(seconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
 
-const ThreeDotsIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="5" r="1.5" fill="#181A2C"/>
-    <circle cx="12" cy="12" r="1.5" fill="#181A2C"/>
-    <circle cx="12" cy="19" r="1.5" fill="#181A2C"/>
-  </svg>
-);
-
-const PlaySVG = () => (
+const PlaySVG = ({ hovered }: { hovered: boolean }) => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ overflow: "visible" }}>
     <defs>
       <filter id="fp" x="-50%" y="-50%" width="200%" height="200%">
@@ -38,7 +28,7 @@ const PlaySVG = () => (
       </filter>
       <linearGradient id="gp" x1="7" y1="7.5" x2="24" y2="48" gradientUnits="userSpaceOnUse">
         <stop stopColor="#8FD75F" />
-        <stop offset="1" stopColor="#31D877" />
+        <stop offset="1" stopColor={hovered ? "#1ECC67" : "#31D877"} style={{ transition: "stop-color 0.3s ease" }} />
       </linearGradient>
     </defs>
     <circle cx="24" cy="24" r="24" fill="url(#gp)" filter="url(#fp)" />
@@ -46,7 +36,7 @@ const PlaySVG = () => (
   </svg>
 );
 
-const StopSVG = () => (
+const StopSVG = ({ hovered }: { hovered: boolean }) => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ overflow: "visible" }}>
     <defs>
       <filter id="fs" x="-50%" y="-50%" width="200%" height="200%">
@@ -54,7 +44,7 @@ const StopSVG = () => (
       </filter>
       <linearGradient id="gs" x1="4" y1="7.5" x2="24" y2="48" gradientUnits="userSpaceOnUse">
         <stop stopColor="#FF7552" />
-        <stop offset="1" stopColor="#FF5125" />
+        <stop offset="1" stopColor={hovered ? "#F53505" : "#FF5125"} style={{ transition: "stop-color 0.3s ease" }} />
       </linearGradient>
     </defs>
     <circle cx="24" cy="24" r="24" fill="url(#gs)" filter="url(#fs)" />
@@ -62,25 +52,17 @@ const StopSVG = () => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect, onCopyReport, onHistory, onSettings }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect }: TimerProps) {
+  const { colors } = useTheme();
   const [taskHovered, setTaskHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const menuItems = [
-    { label: "Copy monthly report", action: onCopyReport },
-    { label: "Show history", action: onHistory },
-    { label: "Settings", action: onSettings },
-  ];
+  const [playStopHovered, setPlayStopHovered] = useState(false);
 
   return (
-    <div style={{ position: "relative", height: 64, width: "100%" }}>
-      {menuOpen && (
-        <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100 }} />
-      )}
+    <div style={{ position: "relative", height: 56, width: "100%" }}>
       <div style={{
         position: "absolute",
         left: 24,
-        top: 8,
+        top: 0,
         width: 392,
         display: "flex",
         alignItems: "center",
@@ -91,7 +73,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
             tasks={tasks}
             selectedTaskId={selectedTaskId}
             onSelect={onTaskSelect}
-            color={taskHovered ? "#7381D3" : "#181A2C"}
+            color={taskHovered ? "#7381D3" : colors.textPrimary}
             onMouseEnter={() => setTaskHovered(true)}
             onMouseLeave={() => setTaskHovered(false)}
           />
@@ -102,7 +84,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
               flexShrink: 0,
               fontSize: 20,
               textAlign: "center",
-              color: "#181A2C",
+              color: colors.textPrimary,
               fontVariantNumeric: "tabular-nums",
               fontFamily: "'Inter', sans-serif",
               margin: 0,
@@ -116,6 +98,8 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <button
             onClick={onToggle}
+            onMouseEnter={() => setPlayStopHovered(true)}
+            onMouseLeave={() => setPlayStopHovered(false)}
             style={{
               width: 48,
               height: 48,
@@ -129,29 +113,12 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
             }}
           >
             <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 0 : 1, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
-              <PlaySVG />
+              <PlaySVG hovered={playStopHovered} />
             </div>
             <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
-              <StopSVG />
+              <StopSVG hovered={playStopHovered} />
             </div>
           </button>
-          <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <button onClick={() => setMenuOpen(o => !o)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24 }}>
-              <ThreeDotsIcon />
-            </button>
-            {menuOpen && (
-              <div style={{ position: "absolute", top: 28, right: 0, background: "white", borderRadius: 12, boxShadow: "0px 4px 24px rgba(0,0,0,0.12)", zIndex: 200, minWidth: 192, padding: "4px 0", overflow: "hidden" }}>
-                {menuItems.map((item) => (
-                  <div key={item.label} onClick={() => { setMenuOpen(false); item.action(); }}
-                    style={{ padding: "10px 16px", fontSize: 15, color: "#181A2C", fontFamily: "'Inter', sans-serif", cursor: "pointer", whiteSpace: "nowrap" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#F6F6F6")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

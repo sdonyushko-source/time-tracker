@@ -1,4 +1,5 @@
 import { Task } from "../db";
+import { useTheme } from "../ThemeContext";
 
 interface TaskPickerProps {
   tasks: Task[];
@@ -9,7 +10,9 @@ interface TaskPickerProps {
   onMouseLeave?: () => void;
 }
 
-export default function TaskPicker({ tasks, selectedTaskId, onSelect, color = "#181A2C", onMouseEnter, onMouseLeave }: TaskPickerProps) {
+export default function TaskPicker({ tasks, selectedTaskId, onSelect, color, onMouseEnter, onMouseLeave }: TaskPickerProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.textPrimary;
   return (
     <select
       value={selectedTaskId}
@@ -17,10 +20,10 @@ export default function TaskPicker({ tasks, selectedTaskId, onSelect, color = "#
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
-        width: 182,
+        width: 214,
         flexShrink: 0,
         fontSize: 16,
-        color,
+        color: resolvedColor,
         background: "none",
         border: "none",
         outline: "none",
@@ -31,6 +34,7 @@ export default function TaskPicker({ tasks, selectedTaskId, onSelect, color = "#
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
+        transition: "color 0.3s ease",
       }}
     >
       {tasks.map((t) => (

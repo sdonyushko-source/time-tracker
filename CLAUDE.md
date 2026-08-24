@@ -15,14 +15,29 @@
 - Цифры: fontVariantNumeric: 'tabular-nums'
 - Никогда не использовать monospace
 
-## Цвета (не менять)
-- Текст основной: #181A2C
-- Текст вторичный: #908F8F
-- Фон: #FFFFFF
-- Граница: #E3E5EA
-- Фон карточки Summary: #F6F6F6
-- Фон badge: #F6F6F6
-- Зелёная точка активной задачи: #34C759
+## Тема (светлая/тёмная)
+- Токены темы — в `src/theme.ts`, живая тема — через `useTheme()` из `src/ThemeContext.tsx` (React Context)
+- Настройка хранится в Settings.theme: "system" | "light" | "dark", "system" следит за ОС через Tauri `onThemeChanged` и живо переключается
+- При смене темы вызывается `getCurrentWindow().setTheme(...)`, чтобы нативный титлбар тоже совпадал
+- Компонент, использующий цвет, ДОЛЖЕН брать его из `colors` (useTheme), а не хардкодить hex — иначе тема не применится
+- Значения не менять без explicit команды:
+
+| Токен | Светлая | Тёмная |
+|---|---|---|
+| pageBg | #FFFFFF | #101010 |
+| cardBg | #F6F6F6 | #1A1A1B |
+| inputBg | #FFFFFF | #1A1A1B |
+| border | #E3E5EA | #2D2D2D |
+| textPrimary | #181A2C | #F3F4F6 |
+| textSecondary | #908F8F | #949599 |
+| progressTrack | #F6F6F6 | #545454 |
+| badgeBg | #F6F6F6 | #626262 |
+| badgeText | #908F8F | #F3F4F6 |
+| menuBg (попапы/дропдауны, 3 точки) | #FFFFFF | #1A1A1B |
+| menuItemHover | #F6F6F6 | #2D2D2D |
+| footerBorder (верх блока Earned) | 1px solid #E3E5EA | none — в тёмной теме бордер отсутствует по дизайну |
+
+- Не зависят от темы (одинаковы всегда): accent #7381D3, danger #FF5429, зелёная точка активной задачи #34C759, градиенты Play/Stop/Save/progress-bar, toast (bg #181A2C / white text)
 
 ## Структура App.tsx
 - Шапка: удалена

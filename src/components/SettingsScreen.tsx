@@ -1,493 +1,342 @@
-import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { confirm } from "@tauri-apps/plugin-dialog";
-import { Task, getSettings, saveSettings, getTasks, createTask, deleteTask, renameTask } from "../db";
+import { useState, useEffect } from "react";
+import { Settings, getSettings, saveSettings } from "../db";
+import { useTheme } from "../ThemeContext";
+import ButtonBar from "./ButtonBar";
+import TitleBarSpacer from "./TitleBarSpacer";
 
-
-function currencySymbol(c: string): string {
-  if (c === "USD") return "$";
-  if (c === "EUR") return "€";
-  if (c === "RUB") return "₽";
-  return c;
-}
-
-const ThreeDotsIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="5" r="1.5" fill="#181A2C"/>
-    <circle cx="12" cy="12" r="1.5" fill="#181A2C"/>
-    <circle cx="12" cy="19" r="1.5" fill="#181A2C"/>
+const ChevronDown = ({ color }: { color: string }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M4 6L8 10L12 6" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const ChevronDown = () => (
+const InfoIcon = ({ color }: { color: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M4 6L8 10L12 6" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.2"/>
+    <rect x="7.3" y="6.8" width="1.4" height="4.2" rx="0.7" fill={color}/>
+    <rect x="7.3" y="4.6" width="1.4" height="1.4" rx="0.7" fill={color}/>
+  </svg>
+);
+
+const CloseIcon = ({ color }: { color: string }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <path d="M18 6L6 18M6 6L18 18" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 interface SettingsScreenProps {
   onClose: () => void;
-  onSave: () => void;
 }
 
-const inputBase: React.CSSProperties = {
-  height: 48,
-  background: "white",
-  border: "1px solid #E3E5EA",
-  borderRadius: 8,
-  padding: "12px 16px",
-  fontSize: 16,
-  color: "#181A2C",
-  fontFamily: "'Inter', sans-serif",
-  outline: "none",
-  boxSizing: "border-box",
+const rowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  width: "100%",
 };
 
-const labelStyle: React.CSSProperties = {
-  fontFamily: "'Inter', sans-serif",
-  fontSize: 14,
-  fontWeight: 400,
-  color: "#181A2C",
-  lineHeight: "20px",
+const nativeSelectStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
+  border: "none",
 };
 
-export default function SettingsScreen({ onClose, onSave }: SettingsScreenProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [currency, setCurrency] = useState("USD");
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        width: 64,
+        height: 28,
+        borderRadius: 100,
+        border: "none",
+        padding: 2,
+        background: on ? "#34C759" : "rgba(60,60,67,0.3)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: on ? "flex-end" : "flex-start",
+        flexShrink: 0,
+        transition: "background 0.15s ease",
+      }}
+    >
+      <div style={{ width: 39, height: 24, borderRadius: 100, background: "white", boxShadow: "0px 1px 3px rgba(0,0,0,0.25)", flexShrink: 0 }} />
+    </button>
+  );
+}
+
+export default function SettingsScreen({ onClose }: SettingsScreenProps) {
+  const { colors, setThemeSetting } = useTheme();
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [hourlyRate, setHourlyRate] = useState("30");
+  const [commission, setCommission] = useState("0");
   const [goalH, setGoalH] = useState("06");
   const [goalM, setGoalM] = useState("00");
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTaskName, setNewTaskName] = useState("");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
-  const newTaskInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const measure = () => {
-      const h = Math.min(el.scrollHeight + 36, 640);
-      invoke("resize_window", { width: 440, height: h });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const [goalMoney, setGoalMoney] = useState("0");
 
   useEffect(() => {
     (async () => {
-      const [s, t] = await Promise.all([getSettings(), getTasks()]);
-      setCurrency(s.currency);
+      const s = await getSettings();
+      setSettings(s);
       setHourlyRate(String(s.hourlyRate));
+      setCommission(String(s.commission));
       setGoalH(String(Math.floor(s.dailyGoalSeconds / 3600)).padStart(2, "0"));
       setGoalM(String(Math.floor((s.dailyGoalSeconds % 3600) / 60)).padStart(2, "0"));
-      setTasks(t);
+      setGoalMoney(String(s.dailyGoalMoney));
     })();
   }, []);
 
-  const handleSaveTask = async () => {
-    const name = (newTaskInputRef.current?.value ?? newTaskName).trim();
-    if (!name) return;
-    try {
-      await createTask(name);
-      const updated = await getTasks();
-      setTasks(updated);
-      setNewTaskName("");
-      setIsAddingTask(false);
-    } catch (err) {
-      console.error("createTask failed:", err);
-    }
+  const persist = async (next: Settings) => {
+    setSettings(next);
+    setThemeSetting(next.theme);
+    await saveSettings(next);
   };
 
-  const handleCancelTask = () => {
-    setNewTaskName("");
-    setIsAddingTask(false);
+  if (!settings) return null;
+
+  const labelStyle: React.CSSProperties = {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 16,
+    fontWeight: 400,
+    color: colors.textPrimary,
+    lineHeight: "24px",
   };
 
-  const handleDeleteTask = async (id: string) => {
-    const ok = await confirm("Are you sure you want to delete this task?", { title: "Delete task", kind: "warning" });
-    if (!ok) return;
-    await deleteTask(id);
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const inputStyle: React.CSSProperties = {
+    height: 32,
+    background: colors.inputBg,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 8,
+    padding: "0 16px",
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontFamily: "'Inter', sans-serif",
+    outline: "none",
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
   };
 
-  const handleRenameTask = async (id: string) => {
-    const name = renameValue.trim();
-    if (!name) return;
-    await renameTask(id, name);
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, name } : t));
-    setRenamingId(null);
-    setRenameValue("");
+  const selectWrapStyle: React.CSSProperties = {
+    ...inputStyle,
+    width: 180,
+    padding: "0 8px 0 16px",
+    cursor: "pointer",
+    position: "relative",
+    justifyContent: "space-between",
+    flexShrink: 0,
   };
 
-  const handleSave = async () => {
-    await saveSettings({
-      hourlyRate: Number(hourlyRate),
-      currency,
-      dailyGoalSeconds: (parseInt(goalH) || 0) * 3600 + (parseInt(goalM) || 0) * 60,
-    });
-    onSave();
-  };
+  const divider = <div style={{ height: 1, background: colors.border, width: "100%", flexShrink: 0 }} />;
 
   return (
-    <div ref={rootRef} style={{
+    <div style={{
       width: 440,
-      background: "white",
+      height: "100vh",
+      background: colors.pageBg,
       display: "flex",
       flexDirection: "column",
+      overflow: "hidden",
+      boxSizing: "border-box",
+      position: "relative",
     }}>
-      {/* Scrollable content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 24 }}>
-
-        {/* Heading */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <TitleBarSpacer />
+      {/* Heading */}
+      <div style={{ flexShrink: 0, padding: "24px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{
           fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           fontSize: 20,
           lineHeight: "24px",
-          color: "#181A2C",
+          color: colors.textPrimary,
         }}>
           Settings
         </span>
         <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6L18 18" stroke="#181A2C" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
+          <CloseIcon color={colors.textPrimary} />
         </button>
-        </div>
+      </div>
 
-        {/* ── Tracking block ── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 24px 84px" }}>
         <div style={{
-          marginTop: 12,
-          background: "#F6F6F6",
+          background: colors.cardBg,
           borderRadius: 12,
           padding: 12,
           display: "flex",
           flexDirection: "column",
-          gap: 8,
+          gap: 12,
         }}>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
-            Tracking
-          </span>
 
-          <div style={{ display: "flex", flexDirection: "row", gap: 8 }}>
-
-            {/* Currency */}
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={labelStyle}>Currency</span>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  style={{
-                    height: 48,
-                    width: "100%",
-                    background: "white",
-                    border: "1px solid #E3E5EA",
-                    borderRadius: 8,
-                    padding: "12px 16px",
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 16,
-                    color: "#181A2C",
-                    cursor: "pointer",
-                    appearance: "none",
-                    WebkitAppearance: "none",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="RUB">RUB</option>
-                  <option value="GBP">GBP</option>
-                </select>
-                <div style={{ position: "absolute", right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", pointerEvents: "none" }}>
-                  <ChevronDown />
-                </div>
-              </div>
+          {/* Hourly rate */}
+          <div style={rowStyle}>
+            <span style={{ ...labelStyle, width: 159 }}>Hourly rate</span>
+            <div style={{ ...inputStyle, width: 180, gap: 8, justifyContent: "space-between" }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(e.target.value)}
+                onBlur={() => persist({ ...settings, hourlyRate: Number(hourlyRate) || 0 })}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                style={{ flex: 1, minWidth: 0, border: "none", background: "none", fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", outline: "none" }}
+              />
+              <span style={{ fontSize: 16, color: colors.textSecondary, fontFamily: "'Inter', sans-serif" }}>$</span>
             </div>
-
-            {/* Hourly rate */}
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={labelStyle}>Hourly rate</span>
-              <div style={{
-                ...inputBase,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "0 16px",
-              }}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={hourlyRate}
-                  onChange={(e) => setHourlyRate(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{
-                    flex: 1,
-                    width: 0,
-                    border: "none",
-                    background: "none",
-                    fontSize: 16,
-                    color: "#181A2C",
-                    fontFamily: "'Inter', sans-serif",
-                    outline: "none",
-                  }}
-                />
-                <span style={{ fontSize: 16, color: "#908F8F", fontFamily: "'Inter', sans-serif", flexShrink: 0 }}>
-                  {currencySymbol(currency)}
-                </span>
-              </div>
-            </div>
-
-            {/* Daily goal */}
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={labelStyle}>Daily goal</span>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                height: 48,
-                background: "white",
-                border: "1px solid #E3E5EA",
-                borderRadius: 8,
-                padding: "0 16px",
-                boxSizing: "border-box",
-              }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={2}
-                  value={goalH}
-                  onChange={(e) => setGoalH(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  onBlur={() => setGoalH((v) => v.padStart(2, "0"))}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
-                />
-                <span style={{ color: "#181A2C", fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={2}
-                  value={goalM}
-                  onChange={(e) => setGoalM(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  onBlur={() => setGoalM((v) => v.padStart(2, "0"))}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  style={{ width: 28, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#181A2C", outline: "none", padding: 0 }}
-                />
-              </div>
-            </div>
-
           </div>
-        </div>
 
-        {/* ── Tasks block ── */}
-        <div style={{
-          marginTop: 12,
-          background: "#F6F6F6",
-          borderRadius: 12,
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}>
-          {/* Header row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#181A2C", lineHeight: "24px" }}>
-              Tasks
-            </span>
-            {!isAddingTask && !renamingId ? (
-              <span
-                onClick={() => setIsAddingTask(true)}
-                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-              >
-                Add
-              </span>
-            ) : isAddingTask ? (
-              <div style={{ display: "flex", gap: 20 }}>
-                <span
-                  onClick={handleCancelTask}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Cancel
-                </span>
-                <span
-                  onClick={handleSaveTask}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Save
-                </span>
+          {/* Commission */}
+          <div style={rowStyle}>
+            <span style={{ ...labelStyle, width: 159 }}>Commission</span>
+            <div style={{ ...inputStyle, width: 180, gap: 8, justifyContent: "space-between" }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={commission}
+                onChange={(e) => setCommission(e.target.value)}
+                onBlur={() => persist({ ...settings, commission: Number(commission) || 0 })}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                style={{ flex: 1, minWidth: 0, border: "none", background: "none", fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", outline: "none" }}
+              />
+              <span style={{ fontSize: 16, color: colors.textSecondary, fontFamily: "'Inter', sans-serif" }}>%</span>
+            </div>
+          </div>
+
+          {divider}
+
+          {/* Daily goal */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+            <div style={rowStyle}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={labelStyle}>Daily goal</span>
+                <InfoIcon color={colors.textSecondary} />
               </div>
-            ) : (
-              <div style={{ display: "flex", gap: 20 }}>
-                <span
-                  onClick={() => { setRenamingId(null); setRenameValue(""); }}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Cancel
-                </span>
-                <span
-                  onClick={() => handleRenameTask(renamingId!)}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Save
-                </span>
+              <Toggle
+                on={settings.dailyGoalEnabled}
+                onToggle={() => persist({ ...settings, dailyGoalEnabled: !settings.dailyGoalEnabled })}
+              />
+            </div>
+
+            {settings.dailyGoalEnabled && (
+              <div style={{ display: "flex", gap: 8, width: "100%" }}>
+                <div style={selectWrapStyle}>
+                  <span style={{ flex: 1, minWidth: 0 }}>{settings.dailyGoalType === "money" ? "Money" : "Hours"}</span>
+                  <ChevronDown color={colors.textPrimary} />
+                  <select
+                    value={settings.dailyGoalType}
+                    onChange={(e) => persist({ ...settings, dailyGoalType: e.target.value as "hours" | "money" })}
+                    style={nativeSelectStyle}
+                  >
+                    <option value="hours">Hours</option>
+                    <option value="money">Money</option>
+                  </select>
+                </div>
+
+                {settings.dailyGoalType === "hours" ? (
+                  <div style={{ ...inputStyle, flex: 1, minWidth: 0, justifyContent: "center", gap: 4 }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={2}
+                      value={goalH}
+                      onChange={(e) => setGoalH(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                      onBlur={() => {
+                        const h = goalH.padStart(2, "0");
+                        setGoalH(h);
+                        persist({ ...settings, dailyGoalSeconds: (parseInt(h) || 0) * 3600 + (parseInt(goalM) || 0) * 60 });
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      style={{ width: 20, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: colors.textPrimary, outline: "none", padding: 0 }}
+                    />
+                    <span style={{ color: colors.textPrimary, fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={2}
+                      value={goalM}
+                      onChange={(e) => setGoalM(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                      onBlur={() => {
+                        const m = goalM.padStart(2, "0");
+                        setGoalM(m);
+                        persist({ ...settings, dailyGoalSeconds: (parseInt(goalH) || 0) * 3600 + (parseInt(m) || 0) * 60 });
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      style={{ width: 20, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: colors.textPrimary, outline: "none", padding: 0 }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ ...inputStyle, flex: 1, minWidth: 0, gap: 8, justifyContent: "space-between" }}>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={goalMoney}
+                      onChange={(e) => setGoalMoney(e.target.value)}
+                      onBlur={() => persist({ ...settings, dailyGoalMoney: Number(goalMoney) || 0 })}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      style={{ flex: 1, minWidth: 0, border: "none", background: "none", fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", outline: "none" }}
+                    />
+                    <span style={{ fontSize: 16, color: colors.textSecondary, fontFamily: "'Inter', sans-serif" }}>$</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* New task input */}
-          {isAddingTask && (
-            <input
-              ref={newTaskInputRef}
-              autoFocus
-              type="text"
-              placeholder="Task name"
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveTask();
-                if (e.key === "Escape") handleCancelTask();
-              }}
-              style={{ ...inputBase, width: "100%" }}
-            />
-          )}
+          {divider}
 
-          {/* Task list */}
-          {tasks.map((task) => (
-            <div key={task.id}>
-              {renamingId === task.id ? (
-                /* Rename inline UI — buttons are in the header */
-                <input
-                  autoFocus
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleRenameTask(task.id);
-                    if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
-                  }}
-                  style={{ ...inputBase, width: "100%" }}
-                />
-              ) : (
-                /* Normal row */
-                <div
-                  onMouseEnter={() => setHoveredTaskId(task.id)}
-                  onMouseLeave={() => setHoveredTaskId(null)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", position: "relative" }}
-                >
-                  <span style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 16,
-                    color: "#181A2C",
-                    lineHeight: "24px",
-                    maxWidth: 304,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {task.name}
-                  </span>
-                  <button
-                    onClick={() => setOpenMenuId(openMenuId === task.id ? null : task.id)}
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, opacity: hoveredTaskId === task.id || openMenuId === task.id ? 1 : 0 }}
-                  >
-                    <ThreeDotsIcon />
-                  </button>
-                  {openMenuId === task.id && (
-                    <>
-                      <div
-                        onClick={() => setOpenMenuId(null)}
-                        style={{ position: "fixed", inset: 0, zIndex: 98 }}
-                      />
-                      <div style={{
-                        position: "absolute",
-                        top: 36,
-                        right: 0,
-                        background: "white",
-                        borderRadius: 8,
-                        padding: 8,
-                        boxShadow: "0px 8px 12px rgba(24,26,44,0.12)",
-                        zIndex: 99,
-                        display: "flex",
-                        flexDirection: "column",
-                        minWidth: 120,
-                      }}>
-                        <div
-                          onClick={() => { setOpenMenuId(null); setRenamingId(task.id); setRenameValue(task.name); }}
-                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#181A2C" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F6F6F6")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          Rename
-                        </div>
-                        <div
-                          onClick={() => { setOpenMenuId(null); handleDeleteTask(task.id); }}
-                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#FF5429" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F6F6F6")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          Delete
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+          {/* Round time in report */}
+          <div style={rowStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={labelStyle}>Round time in report</span>
+              <InfoIcon color={colors.textSecondary} />
             </div>
-          ))}
-        </div>
+            <div style={selectWrapStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {settings.roundReportMinutes === 0 ? "Off" : `${settings.roundReportMinutes} minutes`}
+              </span>
+              <ChevronDown color={colors.textPrimary} />
+              <select
+                value={settings.roundReportMinutes}
+                onChange={(e) => persist({ ...settings, roundReportMinutes: Number(e.target.value) })}
+                style={nativeSelectStyle}
+              >
+                <option value={0}>Off</option>
+                <option value={5}>5 minutes</option>
+                <option value={10}>10 minutes</option>
+                <option value={15}>15 minutes</option>
+                <option value={30}>30 minutes</option>
+              </select>
+            </div>
+          </div>
 
-        {/* ── Cancel / Save buttons ── */}
-        <div style={{
-          marginTop: 24,
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 12,
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              width: 96,
-              height: 48,
-              background: "#F6F6F6",
-              borderRadius: 8,
-              border: "none",
-              fontSize: 16,
-              fontWeight: 400,
-              color: "#181A2C",
-              fontFamily: "'Inter', sans-serif",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              width: 96,
-              height: 48,
-              background: "linear-gradient(168deg, #8FD75F 15.3%, #31D877 85.2%)",
-              boxShadow: "0px 4px 10px rgba(33,152,81,0.3)",
-              borderRadius: 8,
-              border: "none",
-              fontSize: 16,
-              fontWeight: 400,
-              color: "white",
-              fontFamily: "'Inter', sans-serif",
-              cursor: "pointer",
-            }}
-          >
-            Save
-          </button>
+          {/* Theme */}
+          <div style={rowStyle}>
+            <span style={{ ...labelStyle, width: 175 }}>Theme</span>
+            <div style={selectWrapStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {settings.theme === "light" ? "Light" : settings.theme === "dark" ? "Dark" : "System"}
+              </span>
+              <ChevronDown color={colors.textPrimary} />
+              <select
+                value={settings.theme}
+                onChange={(e) => persist({ ...settings, theme: e.target.value as "system" | "light" | "dark" })}
+                style={nativeSelectStyle}
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+
         </div>
 
       </div>
+
+      <ButtonBar onCancel={onClose} onSave={onClose} />
     </div>
   );
 }
