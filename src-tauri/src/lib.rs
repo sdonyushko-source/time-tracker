@@ -170,6 +170,23 @@ fn stop_tray_timer(app: tauri::AppHandle, state: tauri::State<TrayTimerState>) {
     set_tray_title(&app, "");
 }
 
+// Played alongside the system notification when a focus cycle completes.
+// afplay is macOS-only (fine — the rest of this app already assumes macOS,
+// see hide_zoom_button above), and is spawned rather than waited on so it
+// can't hold up the thread it's called from a moment longer than needed.
+fn play_completion_sound(app: &tauri::AppHandle) {
+    let Ok(resource_path) = app
+        .path()
+        .resolve("resources/focus-complete.mp3", tauri::path::BaseDirectory::Resource)
+    else {
+        return;
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("afplay").arg(resource_path).spawn();
+    }
+}
+
 #[tauri::command]
 fn start_focus(app: tauri::AppHandle, state: tauri::State<FocusState>, duration_secs: u64, task_name: Option<String>) {
     let generation = state.0.clone();
@@ -185,6 +202,7 @@ fn start_focus(app: tauri::AppHandle, state: tauri::State<FocusState>, duration_
             builder = builder.body(format!("{} minutes on {}", duration_secs / 60, name));
         }
         let _ = builder.show();
+        play_completion_sound(&app);
 
         let _ = app.emit("focus-complete", ());
     });
