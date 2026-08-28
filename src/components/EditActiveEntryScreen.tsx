@@ -63,8 +63,16 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, plan
 
   // A planned end earlier in the clock than start means it's meant for
   // tomorrow — same convention as EditTimeEntryScreen's own session rows.
+  //
+  // Requires all 4 digits, not just "any digit typed" — TimeInput reports
+  // every keystroke, including a field with only 1 of 4 slots filled (the
+  // rest render as literal spaces, e.g. "1 :  "). parseInt on a blank slot
+  // is NaN, and `new Date(..., NaN, ...).toISOString()` throws (Invalid
+  // Date), which used to crash the whole screen the moment a first digit
+  // landed. Once fully typed, out-of-range digits (e.g. "99:99") are safe —
+  // the Date constructor normalizes those instead of going NaN.
   function resolvePlannedEndISO(): string | null {
-    if (!/[0-9]/.test(endDisplay)) return null;
+    if (!/^\d{2}:\d{2}$/.test(endDisplay)) return null;
     const startMs = new Date(displayToISO(dateValue, startDisplay)).getTime();
     let endMs = new Date(displayToISO(dateValue, endDisplay)).getTime();
     if (endMs <= startMs) endMs += 86400 * 1000;
@@ -154,12 +162,10 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, plan
               />
             </div>
           </div>
-          {hint && (
-            <span style={{ fontSize: 12.5, color: colors.textSecondary, fontFamily: "'Inter', sans-serif", padding: "0 4px" }}>
-              {hint}
-            </span>
-          )}
         </div>
+        <span style={{ marginTop: 8, fontSize: 12.5, color: colors.textSecondary, fontFamily: "'Inter', sans-serif", padding: "0 4px" }}>
+          {hint ?? "Set an end time and this timer will stop itself"}
+        </span>
       </div>
 
       <ButtonBar onCancel={onClose} onSave={handleSave} />
