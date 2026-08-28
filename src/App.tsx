@@ -22,7 +22,8 @@ import {
   getLast7DaysEntries, getWeekEntries, getMonthEntries, getAllEntries, getRecentDaysEntries,
   startEntry, stopEntry, getActiveEntry, getSchedules,
 } from "./db";
-import { formatAmount, formatTimeRU, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange, computeVisibleClients, clientDisplayName, resolveClientId } from "./utils";
+import { formatAmount, formatTimeRU, formatDurationEN, formatHM, computeAutoStopDeadline, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange, computeVisibleClients, clientDisplayName, resolveClientId } from "./utils";
+import type { AutoStopDeadline } from "./utils";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 
 type Screen = "timer" | "settings" | "taskManager" | "editTimeEntry" | "editActiveEntry" | "history" | "statistics" | "schedule";
@@ -36,6 +37,7 @@ const DEFAULT_SETTINGS: Settings = {
   roundReportMinutes: 10,
   theme: "system",
   focusMinutes: 0,
+  maxSessionHours: 10,
 };
 
 function getLocalDate(): string {
@@ -137,8 +139,30 @@ function AppContent() {
   // stale and the duration check below just no-ops instead of stopping
   // whatever happens to be running later.
   const scheduledStopRef = useRef<{ entryId: string; stopAtMs: number } | null>(null);
+  // The active entry's own planned end time (EditActiveEntryScreen), kept in
+  // sync alongside activeEntryId/activeStartMs — null when unset (runs until
+  // manual Stop, modulo the maxSessionHours safety net).
+  const [activePlannedEndTime, setActivePlannedEndTime] = useState<string | null>(null);
+  // Whichever deadline is currently armed in Rust (see start_auto_stop in
+  // lib.rs) — the nearer of plannedEndTime and the maxSessionHours cap, or
+  // null if neither applies. Read by the auto-stop-deadline listener below
+  // (registered once, empty deps) to know what to write as endTime and which
+  // notification wording to use — not React state since nothing renders it.
+  const autoStopArmedRef = useRef<(AutoStopDeadline & { maxSessionHours: number }) | null>(null);
+  // Same stale-closure fix as stopActiveRef/handleTaskStartRef — called from
+  // the stably-registered auto-stop-deadline listener and the periodic
+  // schedule-checker's own safety-net check below, neither of which
+  // re-subscribes on every render.
+  const finalizeAutoStopRef = useRef<() => void>(() => {});
+  // Mirrors tasks/selectedTaskId for the same reason activeEntryIdRef exists
+  // above — the auto-stop-deadline listener needs the task's *current* name
+  // for its notification body without re-subscribing on every render.
+  const tasksRef = useRef<Task[]>([]);
+  const selectedTaskIdRef = useRef<string>("");
 
   useEffect(() => { activeEntryIdRef.current = activeEntryId; }, [activeEntryId]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { selectedTaskIdRef.current = selectedTaskId; }, [selectedTaskId]);
 
   // Runs on every screen/mode change — covers initial mount, navigating to
   // any sub-screen (always standard size), and returning to the main screen
@@ -186,6 +210,19 @@ function AppContent() {
     return () => { unlisten.then((f) => f()); };
   }, []);
 
+  // Fired once by the Rust thread spawned in start_auto_stop, only if it ran
+  // uninterrupted (same generation-counter pattern as focus-complete above —
+  // a cancelled/rescheduled deadline never reaches this). Unlike focus, the
+  // notification is sent from here, not Rust: it needs the task's name and
+  // formatted times, which only live on this side.
+  useEffect(() => {
+    const unlisten = listen("auto-stop-deadline", () => {
+      finalizeAutoStopRef.current();
+    });
+    return () => { unlisten.then((f) => f()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Forces Timer's ring and TitleBarButtons' tooltip to recompute their
   // wall-clock-derived progress/remaining-time once a second while a cycle
   // is running — see the comment on focusStartedAtMs above.
@@ -214,14 +251,50 @@ function AppContent() {
         setRecentEntries(recent);
 
         if (active) {
-          const elapsed = Math.floor((Date.now() - new Date(active.startTime).getTime()) / 1000);
-          startTimeRef.current = Date.now() - elapsed * 1000;
-          setActiveStartMs(startTimeRef.current);
-          setActiveEntryId(active.id);
-          setIsActive(true);
-          setElapsedSeconds(elapsed);
-          const task = t.find((task) => task.id === active.taskId);
-          if (task) setSelectedTaskId(task.id);
+          const startMs = new Date(active.startTime).getTime();
+          const deadline = computeAutoStopDeadline(startMs, active.plannedEndTime, s.maxSessionHours);
+
+          if (deadline && deadline.deadlineMs <= Date.now()) {
+            // The deadline came and went while we weren't running to catch
+            // it (app quit, or a system sleep the Rust thread didn't survive
+            // either) — close it retroactively AT the deadline, never at
+            // this "just noticed" moment (see start_auto_stop/computeAutoStopDeadline).
+            // Do not resume it as active.
+            const durationSeconds = Math.max(0, Math.round((deadline.deadlineMs - startMs) / 1000));
+            await stopEntry(active.id, new Date(deadline.deadlineMs).toISOString(), durationSeconds);
+            if (t.length) setSelectedTaskId(t[0].id);
+
+            const taskName = t.find((task) => task.id === active.taskId)?.name ?? active.taskNameSnapshot;
+            let granted = await isPermissionGranted();
+            if (!granted) granted = (await requestPermission()) === "granted";
+            if (granted) {
+              if (deadline.reason === "planned") {
+                sendNotification({
+                  title: "Timer stopped",
+                  body: `${taskName} · ${formatHM(startMs)}–${formatHM(deadline.deadlineMs)} · ${formatDurationEN(durationSeconds)}`,
+                });
+              } else {
+                sendNotification({
+                  title: `Stopped after ${s.maxSessionHours} hours`,
+                  body: `${taskName} — check the time is right`,
+                });
+              }
+            }
+          } else {
+            const elapsed = Math.floor((Date.now() - startMs) / 1000);
+            startTimeRef.current = Date.now() - elapsed * 1000;
+            setActiveStartMs(startTimeRef.current);
+            setActiveEntryId(active.id);
+            setIsActive(true);
+            setElapsedSeconds(elapsed);
+            setActivePlannedEndTime(active.plannedEndTime);
+            if (deadline) {
+              autoStopArmedRef.current = { ...deadline, maxSessionHours: s.maxSessionHours };
+              invoke("start_auto_stop", { deadlineMs: deadline.deadlineMs }).catch(() => {});
+            }
+            const task = t.find((task) => task.id === active.taskId);
+            if (task) setSelectedTaskId(task.id);
+          }
         } else {
           if (t.length) setSelectedTaskId(t[0].id);
         }
@@ -322,6 +395,72 @@ function AppContent() {
     setFocusActive(true);
   };
 
+  // (Re)arms the auto-stop deadline for the given start time (Rust-side —
+  // see start_auto_stop in lib.rs), or cancels it if neither plannedEndTime
+  // nor settings.maxSessionHours applies. Called on every task start
+  // (plannedEndTime always null there — it's only ever set afterward, via
+  // EditActiveEntryScreen) and whenever that screen is saved with a new one.
+  const armAutoStop = (startMs: number, plannedEndTime: string | null) => {
+    const deadline = computeAutoStopDeadline(startMs, plannedEndTime, settings.maxSessionHours);
+    autoStopArmedRef.current = deadline ? { ...deadline, maxSessionHours: settings.maxSessionHours } : null;
+    if (deadline) {
+      invoke("start_auto_stop", { deadlineMs: deadline.deadlineMs }).catch(() => {});
+    } else {
+      invoke("stop_auto_stop").catch(() => {});
+    }
+  };
+
+  const cancelAutoStop = () => {
+    invoke("stop_auto_stop").catch(() => {});
+    autoStopArmedRef.current = null;
+  };
+
+  // Closes the running entry AT the armed deadline (never "now" — see
+  // computeAutoStopDeadline/2.6) and sends the reason-appropriate
+  // notification. Called both by the auto-stop-deadline listener (the
+  // common case — Rust caught it while the window was merely hidden) and by
+  // the periodic schedule-checker's own safety-net check (the deadline
+  // already passed by the time we got a chance to look — app was quit, or
+  // survived a system sleep the Rust thread didn't).
+  const finalizeAutoStop = async () => {
+    const armed = autoStopArmedRef.current;
+    const entryId = activeEntryIdRef.current;
+    const startMs = startTimeRef.current;
+    if (!armed || !entryId || startMs === null) return;
+
+    const durationSeconds = Math.max(0, Math.round((armed.deadlineMs - startMs) / 1000));
+    const endISO = new Date(armed.deadlineMs).toISOString();
+    const taskName = tasksRef.current.find((t) => t.id === selectedTaskIdRef.current)?.name ?? "";
+
+    await stopEntry(entryId, endISO, durationSeconds);
+    cancelFocus();
+    autoStopArmedRef.current = null;
+    setActiveEntryId(null);
+    startTimeRef.current = null;
+    setActiveStartMs(null);
+    setIsActive(false);
+    setElapsedSeconds(0);
+    setActivePlannedEndTime(null);
+    await refresh();
+
+    let granted = await isPermissionGranted();
+    if (!granted) granted = (await requestPermission()) === "granted";
+    if (!granted) return;
+
+    if (armed.reason === "planned") {
+      sendNotification({
+        title: "Timer stopped",
+        body: `${taskName} · ${formatHM(startMs)}–${formatHM(armed.deadlineMs)} · ${formatDurationEN(durationSeconds)}`,
+      });
+    } else {
+      sendNotification({
+        title: `Stopped after ${armed.maxSessionHours} hours`,
+        body: `${taskName} — check the time is right`,
+      });
+    }
+  };
+  finalizeAutoStopRef.current = finalizeAutoStop;
+
   const toggleFocus = () => {
     if (focusActive) {
       cancelFocus();
@@ -364,6 +503,7 @@ function AppContent() {
   // state updates that drive the native tray timer.
   const stopActive = async () => {
     cancelFocus();
+    cancelAutoStop();
     const elapsed = startTimeRef.current !== null
       ? Math.floor((Date.now() - startTimeRef.current) / 1000)
       : elapsedSeconds;
@@ -375,6 +515,7 @@ function AppContent() {
     setActiveStartMs(null);
     setIsActive(false);
     setElapsedSeconds(0);
+    setActivePlannedEndTime(null);
     await refresh();
   };
   stopActiveRef.current = stopActive;
@@ -396,6 +537,19 @@ function AppContent() {
         const { entryId } = scheduledStopRef.current;
         scheduledStopRef.current = null;
         if (activeEntryIdRef.current === entryId) stopActiveRef.current();
+      }
+
+      // Safety net for the auto-stop deadline (plannedEndTime / max session
+      // length): this reuses the same self-realigning tick as the schedule
+      // checks below rather than a dedicated OS wake listener — a JS timer
+      // suspended through a system sleep just fires as soon as it's next
+      // given a chance to run, checks real elapsed time, and catches up
+      // immediately. The Rust thread (start_auto_stop) is what makes this
+      // fire *promptly* while the window is merely hidden; this is only for
+      // the cases that don't survive — app quit, or a sleep the thread
+      // itself didn't (see 2.6).
+      if (autoStopArmedRef.current && Date.now() >= autoStopArmedRef.current.deadlineMs) {
+        finalizeAutoStopRef.current();
       }
 
       const schedules = await getSchedules();
@@ -477,6 +631,8 @@ function AppContent() {
       startTimeRef.current = Date.now();
       setActiveStartMs(startTimeRef.current);
       setIsActive(true);
+      setActivePlannedEndTime(null);
+      armAutoStop(startTimeRef.current, null);
       await startFocus(task?.name ?? null);
       await refresh();
     }
@@ -484,6 +640,7 @@ function AppContent() {
 
   const handleTaskStart = async (taskId: string): Promise<string> => {
     cancelFocus();
+    cancelAutoStop();
     if (isActive) {
       const elapsed = startTimeRef.current !== null ? Math.floor((Date.now() - startTimeRef.current) / 1000) : elapsedSeconds;
       if (activeEntryId) await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
@@ -496,6 +653,8 @@ function AppContent() {
     setActiveStartMs(startTimeRef.current);
     setElapsedSeconds(0);
     setIsActive(true);
+    setActivePlannedEndTime(null);
+    armAutoStop(startTimeRef.current, null);
     await startFocus(task?.name ?? null);
     await refresh();
     return id;
@@ -555,18 +714,23 @@ function AppContent() {
   }
 
   if (screen === "editActiveEntry" && activeEntryId) {
-    const activeEntry = last7Entries.find((e) => e.id === activeEntryId) ?? null;
     return (
       <EditActiveEntryScreen
         entryId={activeEntryId}
         taskId={selectedTaskId}
-        startTime={activeEntry?.startTime ?? new Date().toISOString()}
+        // last7Entries excludes this entry by definition (endTime IS NULL —
+        // still running), so it can never be looked up there; startTimeRef
+        // is the one place its real start moment actually lives.
+        startTime={new Date(startTimeRef.current ?? Date.now()).toISOString()}
+        plannedEndTime={activePlannedEndTime}
         tasks={tasks}
         onClose={() => setScreen("timer")}
-        onSave={(newTaskId: string, newStartISO: string) => {
+        onSave={(newTaskId: string, newStartISO: string, newPlannedEndTime: string | null) => {
           setSelectedTaskId(newTaskId);
           startTimeRef.current = Date.now() - (Date.now() - new Date(newStartISO).getTime());
           setActiveStartMs(startTimeRef.current);
+          setActivePlannedEndTime(newPlannedEndTime);
+          armAutoStop(startTimeRef.current, newPlannedEndTime);
           setScreen("timer");
           refresh();
         }}
@@ -656,7 +820,7 @@ function AppContent() {
         <div>
           <TitleBarButtons isCompact onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} focusMinutes={settings.focusMinutes} onFocusToggle={toggleFocus} />
           <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} clientGroups={clientGroups} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} />
-          <CompactProgress last7Entries={last7Entries} settings={settings} />
+          <CompactProgress last7Entries={last7Entries} settings={settings} isActive={isActive} elapsedSeconds={elapsedSeconds} />
         </div>
       ) : (
         <>
@@ -674,7 +838,7 @@ function AppContent() {
               padding: 8,
               boxSizing: "border-box",
             }}>
-              <TodaySection last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} isActive={isActive} clientLabelByTaskId={clientLabelByTaskId} clientDotColorByTaskId={clientDotColorByTaskId} onTaskClick={(taskId, date) => { setEditEntriesOverride(null); setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
+              <TodaySection last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} isActive={isActive} elapsedSeconds={elapsedSeconds} clientLabelByTaskId={clientLabelByTaskId} clientDotColorByTaskId={clientDotColorByTaskId} onTaskClick={(taskId, date) => { setEditEntriesOverride(null); setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
             </div>
             <div style={{ padding: "0 8px" }}>
               <MainContent

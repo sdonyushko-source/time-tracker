@@ -25,6 +25,10 @@ export interface Settings {
   // 0 = Off — no Toggle for this one (see SettingsScreen), same convention
   // as roundReportMinutes above.
   focusMinutes: number;
+  // Safety net, not a daily limit: one continuous running session auto-stops
+  // after this long regardless of plannedEndTime (see TimeEntry below) —
+  // whichever of the two the entry hits first. 0 = Off.
+  maxSessionHours: number;
 }
 
 export interface Task {
@@ -74,6 +78,12 @@ export interface TimeEntry {
   currencySnapshot: string | null;
   createdAt: string;
   updatedAt: string;
+  // Set only while this entry is still running (endTime IS NULL) via
+  // EditActiveEntryScreen — an absolute ISO instant already resolved past
+  // any midnight rollover, not a bare "HH:MM". NULL means no planned end;
+  // the entry runs until manual Stop (or the maxSessionHours safety net —
+  // see computeAutoStopDeadline in utils.ts).
+  plannedEndTime: string | null;
 }
 
 export interface Schedule {
@@ -143,6 +153,7 @@ async function doInitDB(): Promise<void> {
     ["theme", "TEXT DEFAULT 'system'"],
     ["commission", "REAL DEFAULT 0"],
     ["focusMinutes", "INTEGER DEFAULT 25"],
+    ["maxSessionHours", "INTEGER DEFAULT 10"],
   ];
   for (const [name, def] of newSettingsColumns) {
     try {
@@ -156,6 +167,15 @@ async function doInitDB(): Promise<void> {
   for (const [name, def] of newTaskColumns) {
     try {
       await _db.execute(`ALTER TABLE tasks ADD COLUMN ${name} ${def}`);
+    } catch {
+      // column already exists
+    }
+  }
+
+  const newTimeEntryColumns: [string, string][] = [["plannedEndTime", "TEXT"]];
+  for (const [name, def] of newTimeEntryColumns) {
+    try {
+      await _db.execute(`ALTER TABLE time_entries ADD COLUMN ${name} ${def}`);
     } catch {
       // column already exists
     }
@@ -219,6 +239,7 @@ const DEFAULT_SETTINGS: Settings = {
   roundReportMinutes: 10,
   theme: "system",
   focusMinutes: 0,
+  maxSessionHours: 10,
 };
 
 // hourlyRate/commission still exist as columns on the underlying settings
@@ -228,17 +249,18 @@ const DEFAULT_SETTINGS: Settings = {
 export async function getSettings(): Promise<Settings> {
   const db = await getDB();
   const rows = await db.select<Record<string, unknown>[]>(
-    "SELECT currency, dailyGoalSeconds, dailyGoalEnabled, dailyGoalType, dailyGoalMoney, roundReportMinutes, theme, focusMinutes FROM settings WHERE id = 1"
+    "SELECT currency, dailyGoalSeconds, dailyGoalEnabled, dailyGoalType, dailyGoalMoney, roundReportMinutes, theme, focusMinutes, maxSessionHours FROM settings WHERE id = 1"
   );
   if (!rows.length) {
     await db.execute(
       `INSERT OR IGNORE INTO settings
-         (id, currency, dailyGoalSeconds, dailyGoalEnabled, dailyGoalType, dailyGoalMoney, roundReportMinutes, theme, focusMinutes)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, currency, dailyGoalSeconds, dailyGoalEnabled, dailyGoalType, dailyGoalMoney, roundReportMinutes, theme, focusMinutes, maxSessionHours)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         DEFAULT_SETTINGS.currency, DEFAULT_SETTINGS.dailyGoalSeconds,
         DEFAULT_SETTINGS.dailyGoalEnabled ? 1 : 0, DEFAULT_SETTINGS.dailyGoalType, DEFAULT_SETTINGS.dailyGoalMoney,
         DEFAULT_SETTINGS.roundReportMinutes, DEFAULT_SETTINGS.theme, DEFAULT_SETTINGS.focusMinutes,
+        DEFAULT_SETTINGS.maxSessionHours,
       ]
     );
     return DEFAULT_SETTINGS;
@@ -253,17 +275,18 @@ export async function getSettings(): Promise<Settings> {
     roundReportMinutes: (r.roundReportMinutes as number) ?? DEFAULT_SETTINGS.roundReportMinutes,
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "system",
     focusMinutes: (r.focusMinutes as number) ?? DEFAULT_SETTINGS.focusMinutes,
+    maxSessionHours: (r.maxSessionHours as number) ?? DEFAULT_SETTINGS.maxSessionHours,
   };
 }
 
 export async function saveSettings(s: Settings): Promise<void> {
   const db = await getDB();
   await db.execute(
-    `UPDATE settings SET currency = ?, dailyGoalSeconds = ?, dailyGoalEnabled = ?, dailyGoalType = ?, dailyGoalMoney = ?, roundReportMinutes = ?, theme = ?, focusMinutes = ? WHERE id = 1`,
+    `UPDATE settings SET currency = ?, dailyGoalSeconds = ?, dailyGoalEnabled = ?, dailyGoalType = ?, dailyGoalMoney = ?, roundReportMinutes = ?, theme = ?, focusMinutes = ?, maxSessionHours = ? WHERE id = 1`,
     [
       s.currency, s.dailyGoalSeconds,
       s.dailyGoalEnabled ? 1 : 0, s.dailyGoalType, s.dailyGoalMoney,
-      s.roundReportMinutes, s.theme, s.focusMinutes,
+      s.roundReportMinutes, s.theme, s.focusMinutes, s.maxSessionHours,
     ]
   );
 }

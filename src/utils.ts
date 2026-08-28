@@ -21,6 +21,106 @@ export function formatTimeRU(seconds: number): string {
   return `${m}м`;
 }
 
+// English short format: "Xh Ym" / "Xh" / "Ym" — used in auto-stop
+// notifications/hints, which are worded in English (unlike the ч/м goal
+// readouts above, which are this app's own separate established shorthand
+// for the progress bar specifically).
+export function formatDurationEN(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+// "HH:MM" from a timestamp, local time.
+export function formatHM(ms: number): string {
+  const d = new Date(ms);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+export type AutoStopReason = "planned" | "maxSession";
+
+export interface AutoStopDeadline {
+  deadlineMs: number;
+  reason: AutoStopReason;
+}
+
+// The nearer of a specific planned end time and the max-session-length
+// safety net, whichever the running entry hits first — null when neither
+// applies (no plannedEndTime set and maxSessionHours is 0/Off). Ties go to
+// "planned": a deliberately-set end time is the more specific signal.
+export function computeAutoStopDeadline(
+  startMs: number,
+  plannedEndTime: string | null,
+  maxSessionHours: number
+): AutoStopDeadline | null {
+  const plannedMs = plannedEndTime ? new Date(plannedEndTime).getTime() : null;
+  const maxMs = maxSessionHours > 0 ? startMs + maxSessionHours * 3600 * 1000 : null;
+
+  if (plannedMs === null && maxMs === null) return null;
+  if (plannedMs !== null && (maxMs === null || plannedMs <= maxMs)) {
+    return { deadlineMs: plannedMs, reason: "planned" };
+  }
+  return { deadlineMs: maxMs!, reason: "maxSession" };
+}
+
+export interface GoalProgress {
+  totalSeconds: number;
+  // Rounded, uncapped — 125 past goal, not pinned at 100 (matches the label).
+  pct: number;
+  // All four are % widths (0-100) for same-height flex segments laid out
+  // left to right in this order: green, ghost, orange, ghostOver. Any of
+  // them can be 0. Ghost segments render as the same gradient as their
+  // solid counterpart, just at reduced opacity — see TodaySection/
+  // CompactProgress — never a distinct color: it's the same time, just not
+  // closed yet.
+  green: number;
+  ghost: number;
+  orange: number;
+  ghostOver: number;
+}
+
+// Shared by TodaySection and CompactProgress: today's total against the
+// daily goal, split into closed time (green/orange, from last7Entries) and
+// the still-running entry's live elapsed time (ghost/ghostOver, from
+// elapsedSeconds — it has no durationSeconds yet, so it can't come from
+// last7Entries at all). Under goal, segments are simple fractions of the
+// goal; over goal the bar is always full and every segment's share is
+// recomputed against the actual total instead, so a longer day doesn't
+// change what "100% of the bar" means.
+export function computeGoalProgress(closedSeconds: number, runningSeconds: number, goalSeconds: number): GoalProgress {
+  const totalSeconds = closedSeconds + runningSeconds;
+  const pct = goalSeconds > 0 ? Math.round((totalSeconds / goalSeconds) * 100) : 0;
+
+  if (goalSeconds <= 0) {
+    return { totalSeconds, pct, green: 0, ghost: 0, orange: 0, ghostOver: 0 };
+  }
+
+  if (totalSeconds <= goalSeconds) {
+    return {
+      totalSeconds,
+      pct,
+      green: (closedSeconds / goalSeconds) * 100,
+      ghost: (runningSeconds / goalSeconds) * 100,
+      orange: 0,
+      ghostOver: 0,
+    };
+  }
+
+  const remainingGoalRoom = Math.max(0, goalSeconds - closedSeconds);
+  const runningWithinGoal = Math.min(runningSeconds, remainingGoalRoom);
+  const runningOverGoal = runningSeconds - runningWithinGoal;
+  return {
+    totalSeconds,
+    pct,
+    green: (Math.min(closedSeconds, goalSeconds) / totalSeconds) * 100,
+    ghost: (runningWithinGoal / totalSeconds) * 100,
+    orange: (Math.max(0, closedSeconds - goalSeconds) / totalSeconds) * 100,
+    ghostOver: (runningOverGoal / totalSeconds) * 100,
+  };
+}
+
 export function formatAmount(amount: number, currency: string): string {
   const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency + " ";
   return symbol + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");

@@ -3,6 +3,7 @@ import { Settings, getSettings, saveSettings } from "../db";
 import { useTheme } from "../ThemeContext";
 import ButtonBar from "./ButtonBar";
 import TitleBarSpacer from "./TitleBarSpacer";
+import Tooltip from "./Tooltip";
 
 const ChevronDown = ({ color }: { color: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -313,6 +314,35 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
                 <option value={35}>35 minutes</option>
                 <option value={45}>45 minutes</option>
                 <option value={60}>60 minutes</option>
+              </select>
+            </div>
+          </div>
+
+          {divider}
+
+          {/* Max session length */}
+          <div style={rowStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={labelStyle}>Max session length</span>
+              <Tooltip content="One running session stops after this long. Not a daily limit.">
+                <InfoIcon color={colors.textSecondary} />
+              </Tooltip>
+            </div>
+            <div style={selectWrapStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {settings.maxSessionHours === 0 ? "Off" : `${settings.maxSessionHours} hours`}
+              </span>
+              <ChevronDown color={colors.textPrimary} />
+              <select
+                value={settings.maxSessionHours}
+                onChange={(e) => persist({ ...settings, maxSessionHours: Number(e.target.value) })}
+                style={nativeSelectStyle}
+              >
+                <option value={0}>Off</option>
+                <option value={6}>6 hours</option>
+                <option value={8}>8 hours</option>
+                <option value={10}>10 hours</option>
+                <option value={12}>12 hours</option>
               </select>
             </div>
           </div>

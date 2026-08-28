@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TimeEntry, Settings } from "../db";
-import { formatTime, formatTimeRU } from "../utils";
+import { formatTime, formatTimeRU, computeGoalProgress } from "../utils";
 import { useTheme } from "../ThemeContext";
 
 interface TodaySectionProps {
@@ -8,6 +8,11 @@ interface TodaySectionProps {
   settings: Settings;
   activeTaskId: string;
   isActive: boolean;
+  // The active entry's live duration — not in last7Entries yet (its
+  // durationSeconds is only set once it's stopped), so this is the only way
+  // the goal bar's ghost segment can reflect it in real time. 0 when
+  // !isActive.
+  elapsedSeconds: number;
   // Tasks on the default ("No client") client never get an entry here —
   // see App.tsx.
   clientLabelByTaskId: Record<string, string>;
@@ -39,7 +44,7 @@ function getLocalDate(): string {
 // Renders inside the gray Timer card — only today's entries, on the
 // card's own #F6F6F6 background. Yesterday/older days render separately,
 // on the plain page background, via MainContent.
-export default function TodaySection({ last7Entries, settings, activeTaskId, isActive, clientLabelByTaskId, clientDotColorByTaskId, onTaskClick, onTaskStart }: TodaySectionProps) {
+export default function TodaySection({ last7Entries, settings, activeTaskId, isActive, elapsedSeconds, clientLabelByTaskId, clientDotColorByTaskId, onTaskClick, onTaskStart }: TodaySectionProps) {
   const { colors } = useTheme();
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -63,17 +68,20 @@ export default function TodaySection({ last7Entries, settings, activeTaskId, isA
     .map(([id, t]) => ({ id, ...t }))
     .sort((a, b) => a.firstStartTime.localeCompare(b.firstStartTime));
 
-  const totalSeconds = todayEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const closedSeconds = todayEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  // isActive alone isn't enough — it's true for whichever task is running,
+  // not necessarily one that shows up in this Today list at all (e.g. a
+  // task on the default/"No client" client — see clientLabelByTaskId above).
+  // Gating on activeTaskId being one of today's own tasks isn't needed
+  // either way: an active entry not yet in todayEntries just means running
+  // is the entry's *entire* live duration, which is exactly elapsedSeconds.
+  const runningSeconds = isActive ? elapsedSeconds : 0;
   // No cap — past 100% we keep counting (125%, etc.) instead of pinning the
-  // label at "100%" once the goal's been hit.
-  const pct = dailyGoalSeconds > 0 ? Math.round((totalSeconds / dailyGoalSeconds) * 100) : 0;
-  const overworked = dailyGoalSeconds > 0 && totalSeconds > dailyGoalSeconds;
-  // The track itself never changes width. Under goal it's a single green
-  // fill (as before). Past goal, the track is always full — it just splits
-  // into how much of the actual time was "within goal" (green) vs overtime
-  // (orange), so the green share shrinks the more you overwork.
-  const greenPct = overworked ? (dailyGoalSeconds / totalSeconds) * 100 : Math.min(100, pct);
-  const orangePct = overworked ? 100 - greenPct : 0;
+  // label at "100%" once the goal's been hit. Ghost segments (the running
+  // entry's share) use the same over/under-goal split as closed time — see
+  // computeGoalProgress.
+  const { totalSeconds, pct, green: greenPct, ghost: ghostPct, orange: orangePct, ghostOver: ghostOverPct } =
+    computeGoalProgress(closedSeconds, runningSeconds, dailyGoalSeconds);
 
   return (
     <div>
@@ -89,8 +97,14 @@ export default function TodaySection({ last7Entries, settings, activeTaskId, isA
 
         <div style={{ height: 8, borderRadius: 40, background: colors.progressTrack, overflow: "hidden", marginBottom: 8, display: "flex" }}>
           <div style={{ height: 8, width: `${greenPct}%`, flexShrink: 0, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
-          {overworked && (
+          {ghostPct > 0 && (
+            <div style={{ height: 8, width: `${ghostPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)" }} />
+          )}
+          {orangePct > 0 && (
             <div style={{ height: 8, width: `${orangePct}%`, flexShrink: 0, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)", boxShadow: "0px 4px 20px 0px rgba(153,44,16,0.3)" }} />
+          )}
+          {ghostOverPct > 0 && (
+            <div style={{ height: 8, width: `${ghostOverPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)" }} />
           )}
         </div>
       </div>

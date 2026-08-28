@@ -213,6 +213,34 @@ fn stop_focus(state: tauri::State<FocusState>) {
     state.0.fetch_add(1, Ordering::SeqCst);
 }
 
+// Same generation-counter pattern again, for the auto-stop deadline
+// (plannedEndTime / max session length — see computeAutoStopDeadline in
+// utils.ts). Unlike start_focus, this doesn't send the notification or
+// touch the database itself — the frontend owns both (it needs the task's
+// name and the entry id, neither of which this side has), so this just
+// wakes it up via an event once the deadline is reached uninterrupted.
+struct AutoStopState(Arc<AtomicU64>);
+
+#[tauri::command]
+fn start_auto_stop(app: tauri::AppHandle, state: tauri::State<AutoStopState>, deadline_ms: i64) {
+    let generation = state.0.clone();
+    let my_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
+    std::thread::spawn(move || {
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+        let wait_ms = (deadline_ms - now_ms).max(0) as u64;
+        std::thread::sleep(Duration::from_millis(wait_ms));
+        if generation.load(Ordering::SeqCst) != my_gen {
+            return;
+        }
+        let _ = app.emit("auto-stop-deadline", ());
+    });
+}
+
+#[tauri::command]
+fn stop_auto_stop(state: tauri::State<AutoStopState>) {
+    state.0.fetch_add(1, Ordering::SeqCst);
+}
+
 // Schema is created (and kept up to date) by initDB() in src/db.ts via
 // `CREATE TABLE IF NOT EXISTS`. We intentionally don't register sqlx
 // migrations here: sqlx checksums each migration's SQL text and refuses to
@@ -227,6 +255,7 @@ pub fn run() {
         .plugin(SqlBuilder::default().build())
         .manage(TrayTimerState(Arc::new(AtomicU64::new(0))))
         .manage(FocusState(Arc::new(AtomicU64::new(0))))
+        .manage(AutoStopState(Arc::new(AtomicU64::new(0))))
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             if let Some(window) = _app.get_webview_window("main") {
@@ -245,7 +274,9 @@ pub fn run() {
             start_tray_timer,
             stop_tray_timer,
             start_focus,
-            stop_focus
+            stop_focus,
+            start_auto_stop,
+            stop_auto_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

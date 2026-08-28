@@ -27,11 +27,12 @@ export async function updateActiveEntry(
   taskId: string,
   taskName: string,
   startTime: string,
+  plannedEndTime: string | null,
 ): Promise<void> {
   const db = await getDB();
   await db.execute(
-    "UPDATE time_entries SET taskId=?, taskNameSnapshot=?, startTime=?, updatedAt=? WHERE id=?",
-    [taskId, taskName, startTime, new Date().toISOString(), id]
+    "UPDATE time_entries SET taskId=?, taskNameSnapshot=?, startTime=?, plannedEndTime=?, updatedAt=? WHERE id=?",
+    [taskId, taskName, startTime, plannedEndTime, new Date().toISOString(), id]
   );
 }
 

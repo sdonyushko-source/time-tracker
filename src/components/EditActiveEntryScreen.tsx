@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Task } from "../db";
 import { updateActiveEntry } from "../entryOps";
 import { useTheme } from "../ThemeContext";
+import { formatDurationEN } from "../utils";
 import ButtonBar from "./ButtonBar";
 import TimeInput from "./TimeInput";
 import TitleBarSpacer from "./TitleBarSpacer";
@@ -10,9 +11,10 @@ interface EditActiveEntryScreenProps {
   entryId: string;
   taskId: string;
   startTime: string;
+  plannedEndTime: string | null;
   tasks: Task[];
   onClose: () => void;
-  onSave: (newTaskId: string, newStartISO: string) => void;
+  onSave: (newTaskId: string, newStartISO: string, newPlannedEndTime: string | null) => void;
 }
 
 function isoToDateValue(iso: string): string {
@@ -50,11 +52,29 @@ const ChevronDown = ({ color }: { color: string }) => (
   </svg>
 );
 
-export default function EditActiveEntryScreen({ entryId, taskId, startTime, tasks, onClose, onSave }: EditActiveEntryScreenProps) {
+export default function EditActiveEntryScreen({ entryId, taskId, startTime, plannedEndTime, tasks, onClose, onSave }: EditActiveEntryScreenProps) {
   const { colors } = useTheme();
   const [selectedTaskId, setSelectedTaskId] = useState(taskId);
   const [dateValue, setDateValue] = useState(isoToDateValue(startTime));
   const [startDisplay, setStartDisplay] = useState(isoToTimeDisplay(startTime));
+  // "" (all slots blank) means no planned end — TimeInput renders that as
+  // blank, same look as the disabled "--:--" placeholder this replaces.
+  const [endDisplay, setEndDisplay] = useState(plannedEndTime ? isoToTimeDisplay(plannedEndTime) : "");
+
+  // A planned end earlier in the clock than start means it's meant for
+  // tomorrow — same convention as EditTimeEntryScreen's own session rows.
+  function resolvePlannedEndISO(): string | null {
+    if (!/[0-9]/.test(endDisplay)) return null;
+    const startMs = new Date(displayToISO(dateValue, startDisplay)).getTime();
+    let endMs = new Date(displayToISO(dateValue, endDisplay)).getTime();
+    if (endMs <= startMs) endMs += 86400 * 1000;
+    return new Date(endMs).toISOString();
+  }
+
+  const plannedEndISO = resolvePlannedEndISO();
+  const hint = plannedEndISO
+    ? `Stops at ${endDisplay}, in ${formatDurationEN(Math.max(0, Math.round((new Date(plannedEndISO).getTime() - Date.now()) / 1000)))}`
+    : null;
 
   const fieldBase: React.CSSProperties = {
     height: 32,
@@ -71,8 +91,9 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, task
   const handleSave = async () => {
     const startISO = displayToISO(dateValue, startDisplay);
     const task = tasks.find((t) => t.id === selectedTaskId);
-    await updateActiveEntry(entryId, selectedTaskId, task?.name ?? "", startISO);
-    onSave(selectedTaskId, startISO);
+    const plannedEnd = resolvePlannedEndISO();
+    await updateActiveEntry(entryId, selectedTaskId, task?.name ?? "", startISO, plannedEnd);
+    onSave(selectedTaskId, startISO, plannedEnd);
   };
 
   // Window-level, not a div onKeyDown: bubbling-based handlers only fire
@@ -126,9 +147,18 @@ export default function EditActiveEntryScreen({ entryId, taskId, startTime, task
                 style={{ ...fieldBase, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
               />
               <div style={{ width: 8, height: 1, backgroundColor: colors.border, flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
-              <input type="text" value="--:--" disabled style={{ ...fieldBase, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center", opacity: 0.5, cursor: "not-allowed" }} />
+              <TimeInput
+                value={endDisplay}
+                onChange={setEndDisplay}
+                style={{ ...fieldBase, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
+              />
             </div>
           </div>
+          {hint && (
+            <span style={{ fontSize: 12.5, color: colors.textSecondary, fontFamily: "'Inter', sans-serif", padding: "0 4px" }}>
+              {hint}
+            </span>
+          )}
         </div>
       </div>
 
