@@ -310,8 +310,9 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
                 <option value={0}>Off</option>
                 <option value={15}>15 minutes</option>
                 <option value={25}>25 minutes</option>
+                <option value={35}>35 minutes</option>
                 <option value={45}>45 minutes</option>
-                <option value={50}>50 minutes</option>
+                <option value={60}>60 minutes</option>
               </select>
             </div>
           </div>
