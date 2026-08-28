@@ -8,6 +8,13 @@ interface TodaySectionProps {
   settings: Settings;
   activeTaskId: string;
   isActive: boolean;
+  // Tasks on the default ("No client") client never get an entry here —
+  // see App.tsx.
+  clientLabelByTaskId: Record<string, string>;
+  // Subset of clientLabelByTaskId's keys — only present when that client's
+  // avatar is in emoji mode (a letter/dash avatar has no real color of its
+  // own to show). See App.tsx.
+  clientDotColorByTaskId: Record<string, string>;
   onTaskClick: (taskId: string, date: string) => void;
   onTaskStart: (taskId: string) => void;
 }
@@ -32,7 +39,7 @@ function getLocalDate(): string {
 // Renders inside the gray Timer card — only today's entries, on the
 // card's own #F6F6F6 background. Yesterday/older days render separately,
 // on the plain page background, via MainContent.
-export default function TodaySection({ last7Entries, settings, activeTaskId, isActive, onTaskClick, onTaskStart }: TodaySectionProps) {
+export default function TodaySection({ last7Entries, settings, activeTaskId, isActive, clientLabelByTaskId, clientDotColorByTaskId, onTaskClick, onTaskStart }: TodaySectionProps) {
   const { colors } = useTheme();
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -107,7 +114,9 @@ export default function TodaySection({ last7Entries, settings, activeTaskId, isA
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "6px 8px",
+              // 4px top + 4px bottom = 8px between adjacent task rows —
+              // horizontal padding (8) untouched.
+              padding: "4px 8px",
               borderRadius: 8,
               background: isHovered ? colors.cardRowHover : "transparent",
               cursor: "pointer",
@@ -115,24 +124,50 @@ export default function TodaySection({ last7Entries, settings, activeTaskId, isA
               transition: "background 0.3s ease",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
-              <span style={{
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                fontSize: 15, color: colors.textPrimary, lineHeight: "24px", flexShrink: 1,
-              }}>
-                {task.name}
-              </span>
-              {isTaskActive && (
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />
-              )}
-              {task.count > 1 && (
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden" }}>
                 <span style={{
-                  padding: "0 4px", background: colors.progressTrack,
-                  borderRadius: 4, fontSize: 12, fontWeight: 500, color: colors.badgeText,
-                  flexShrink: 0, textAlign: "center", lineHeight: "16px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  fontSize: 15, color: colors.textPrimary, lineHeight: "24px", flexShrink: 1,
                 }}>
-                  {task.count}
+                  {task.name}
                 </span>
+                {isTaskActive && (
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34C759", flexShrink: 0 }} />
+                )}
+                {task.count > 1 && (
+                  <span style={{
+                    padding: "0 4px", background: colors.progressTrack,
+                    borderRadius: 4, fontSize: 12, fontWeight: 500, color: colors.badgeText,
+                    flexShrink: 0, textAlign: "center", lineHeight: "16px",
+                  }}>
+                    {task.count}
+                  </span>
+                )}
+              </div>
+              {clientLabelByTaskId[task.id] && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden",
+                  // The task-name line above sits in a 24px line-height box
+                  // for a 15px font, which leaves ~7px of unclaimed leading
+                  // below the glyphs before this line even starts — cancel
+                  // that out (-7), then add back the 4px gap actually
+                  // wanted between the two lines.
+                  marginTop: -3,
+                }}>
+                  <span style={{
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    fontSize: 12, lineHeight: "16px", color: colors.textSecondary,
+                  }}>
+                    {clientLabelByTaskId[task.id]}
+                  </span>
+                  {clientDotColorByTaskId[task.id] && (
+                    <span style={{
+                      width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+                      background: clientDotColorByTaskId[task.id],
+                    }} />
+                  )}
+                </div>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

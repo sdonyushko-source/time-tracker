@@ -1,8 +1,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_sql::Builder as SqlBuilder;
 
 // A monotonically increasing generation counter. Each start_tray_timer call
@@ -12,6 +13,16 @@ use tauri_plugin_sql::Builder as SqlBuilder;
 // handles/cancellation channels for what is otherwise a fire-and-forget
 // background loop.
 struct TrayTimerState(Arc<AtomicU64>);
+
+// Same fire-and-forget generation-counter pattern as TrayTimerState above,
+// for the focus (Pomodoro) cycle: start_focus bumps the counter and spawns a
+// thread that sleeps for the whole duration in one go (this is a one-shot
+// deadline, not a per-second tick), then — only if no newer generation has
+// superseded it (a stop, or a fresh start) — sends the system notification
+// and tells the frontend to clear the ring. stop_focus just bumps the
+// counter; the sleeping thread simply finds itself stale when it wakes and
+// exits quietly, so a cancelled cycle never notifies.
+struct FocusState(Arc<AtomicU64>);
 
 #[tauri::command]
 fn resize_window(app: tauri::AppHandle, width: f64, height: f64) {
@@ -60,12 +71,56 @@ fn show_more_menu(app: tauri::AppHandle) {
                 &PredefinedMenuItem::separator(&app)?,
                 &MenuItem::with_id(&app, "statistics", "Statistics", true, None::<&str>)?,
                 &MenuItem::with_id(&app, "history", "History", true, None::<&str>)?,
-                &MenuItem::with_id(&app, "schedule", "Schedule", true, None::<&str>)?,
                 &PredefinedMenuItem::separator(&app)?,
-                &MenuItem::with_id(&app, "task_manager", "Task manager", true, None::<&str>)?,
+                &MenuItem::with_id(&app, "task_manager", "Task management", true, None::<&str>)?,
+                &MenuItem::with_id(&app, "schedule", "Schedule", true, None::<&str>)?,
                 &MenuItem::with_id(&app, "settings", "Settings", true, None::<&str>)?,
             ],
         )?;
+        window.popup_menu(&menu)
+    };
+    let _ = build();
+}
+
+#[derive(serde::Deserialize)]
+struct TaskPickerTask {
+    id: String,
+    name: String,
+}
+
+#[derive(serde::Deserialize)]
+struct TaskPickerGroup {
+    label: String,
+    tasks: Vec<TaskPickerTask>,
+}
+
+// Timer's task picker, for when there are 2+ visible clients (see
+// computeVisibleClients in utils.ts) — an HTML <select> can't nest a
+// client → task submenu, so this pops the same kind of native menu as
+// show_more_menu, one Submenu per client. Task ids come back prefixed
+// "task:" on the same "menu-action" event the "..." menu already uses
+// (see on_menu_event below), so the frontend listener can tell a task
+// selection apart from a screen-navigation id without a second event/
+// command pair.
+#[tauri::command]
+fn show_task_picker_menu(app: tauri::AppHandle, groups: Vec<TaskPickerGroup>) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let build = || -> tauri::Result<()> {
+        let mut submenus: Vec<Submenu<tauri::Wry>> = Vec::new();
+        for group in &groups {
+            let items: Vec<MenuItem<tauri::Wry>> = group
+                .tasks
+                .iter()
+                .filter_map(|t| MenuItem::with_id(&app, format!("task:{}", t.id), &t.name, true, None::<&str>).ok())
+                .collect();
+            if items.is_empty() {
+                continue;
+            }
+            let item_refs: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|i| i as &dyn IsMenuItem<tauri::Wry>).collect();
+            submenus.push(Submenu::with_items(&app, &group.label, true, &item_refs)?);
+        }
+        let submenu_refs: Vec<&dyn IsMenuItem<tauri::Wry>> = submenus.iter().map(|s| s as &dyn IsMenuItem<tauri::Wry>).collect();
+        let menu = Menu::with_items(&app, &submenu_refs)?;
         window.popup_menu(&menu)
     };
     let _ = build();
@@ -115,6 +170,31 @@ fn stop_tray_timer(app: tauri::AppHandle, state: tauri::State<TrayTimerState>) {
     set_tray_title(&app, "");
 }
 
+#[tauri::command]
+fn start_focus(app: tauri::AppHandle, state: tauri::State<FocusState>, duration_secs: u64, task_name: Option<String>) {
+    let generation = state.0.clone();
+    let my_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(duration_secs));
+        if generation.load(Ordering::SeqCst) != my_gen {
+            return;
+        }
+
+        let mut builder = app.notification().builder().title("Time for a break");
+        if let Some(name) = &task_name {
+            builder = builder.body(format!("{} minutes on {}", duration_secs / 60, name));
+        }
+        let _ = builder.show();
+
+        let _ = app.emit("focus-complete", ());
+    });
+}
+
+#[tauri::command]
+fn stop_focus(state: tauri::State<FocusState>) {
+    state.0.fetch_add(1, Ordering::SeqCst);
+}
+
 // Schema is created (and kept up to date) by initDB() in src/db.ts via
 // `CREATE TABLE IF NOT EXISTS`. We intentionally don't register sqlx
 // migrations here: sqlx checksums each migration's SQL text and refuses to
@@ -128,6 +208,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(SqlBuilder::default().build())
         .manage(TrayTimerState(Arc::new(AtomicU64::new(0))))
+        .manage(FocusState(Arc::new(AtomicU64::new(0))))
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             if let Some(window) = _app.get_webview_window("main") {
@@ -142,8 +223,11 @@ pub fn run() {
             greet,
             resize_window,
             show_more_menu,
+            show_task_picker_menu,
             start_tray_timer,
-            stop_tray_timer
+            stop_tray_timer,
+            start_focus,
+            stop_focus
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

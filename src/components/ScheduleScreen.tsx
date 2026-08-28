@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { Schedule, getSchedules, deleteSchedule } from "../db";
-import { formatTimeRU } from "../utils";
 import { useTheme } from "../ThemeContext";
 import TitleBarSpacer from "./TitleBarSpacer";
 import ScheduleFormScreen from "./ScheduleFormScreen";
@@ -51,6 +50,15 @@ const WEEKDAY_LABELS: { value: number; label: string }[] = [
 function formatWeekdays(weekdays: string): string {
   const set = new Set(weekdays.split(",").map(Number));
   return WEEKDAY_LABELS.filter((d) => set.has(d.value)).map((d) => d.label).join(", ");
+}
+
+// HH:MM + minutes → HH:MM, wrapping past midnight — same helper as
+// ScheduleFormScreen, used here to show an End time next to Start instead of
+// the raw stored duration.
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
 }
 
 interface ScheduleScreenProps {
@@ -170,7 +178,7 @@ export default function ScheduleScreen({ onClose }: ScheduleScreenProps) {
                   {s.autoStart ? <LightningIcon /> : <BellIcon color={colors.textSecondary} />}
                 </div>
                 <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: colors.textSecondary, lineHeight: "18px" }}>
-                  {formatWeekdays(s.weekdays)} · {s.startTime} · {formatTimeRU(s.durationMinutes * 60)}
+                  {formatWeekdays(s.weekdays)} · {s.startTime}–{addMinutesToTime(s.startTime, s.durationMinutes)}
                 </span>
               </div>
               <button

@@ -17,6 +17,48 @@ const ChevronDown = ({ color }: { color: string }) => (
   </svg>
 );
 
+// Same pill switch as SettingsScreen's Daily goal toggle.
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        width: 64,
+        height: 28,
+        borderRadius: 100,
+        border: "none",
+        padding: 2,
+        background: on ? "#34C759" : "rgba(60,60,67,0.3)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: on ? "flex-end" : "flex-start",
+        flexShrink: 0,
+        transition: "background 0.15s ease",
+      }}
+    >
+      <div style={{ width: 39, height: 24, borderRadius: 100, background: "white", boxShadow: "0px 1px 3px rgba(0,0,0,0.25)", flexShrink: 0 }} />
+    </button>
+  );
+}
+
+// HH:MM + minutes → HH:MM, wrapping past midnight.
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+}
+
+// Minutes between two HH:MM values — same "end <= start means it crosses
+// midnight" convention as EditTimeEntryScreen's computeSessionSeconds.
+function timeDiffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff <= 0) diff += 1440;
+  return diff;
+}
+
 const WEEKDAY_LABELS: { value: number; label: string }[] = [
   { value: 1, label: "Mon" },
   { value: 2, label: "Tue" },
@@ -55,8 +97,9 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
   const [taskId, setTaskId] = useState(schedule?.taskId ?? "");
   const [weekdays, setWeekdays] = useState<number[]>(schedule ? schedule.weekdays.split(",").map(Number) : []);
   const [startTime, setStartTime] = useState(schedule?.startTime ?? "09:00");
-  const [durationH, setDurationH] = useState(String(Math.floor((schedule?.durationMinutes ?? 60) / 60)).padStart(2, "0"));
-  const [durationM, setDurationM] = useState(String((schedule?.durationMinutes ?? 60) % 60).padStart(2, "0"));
+  const [endTime, setEndTime] = useState(
+    schedule ? addMinutesToTime(schedule.startTime, schedule.durationMinutes) : "10:00"
+  );
   const [autoStart, setAutoStart] = useState(!!schedule?.autoStart);
 
   useEffect(() => {
@@ -68,8 +111,7 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Task select (48px) and Auto-start select (48px) share this recipe —
-  // same as TaskManagerScreen's inputBase.
+  // Task select — same recipe as TaskManagerScreen's inputBase.
   const inputBase: React.CSSProperties = {
     height: 48,
     background: colors.inputBg,
@@ -85,7 +127,8 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
     alignItems: "center",
   };
 
-  // Duration (32px) matches SettingsScreen's Daily goal recipe exactly.
+  // Start/End time inputs (32px) — same fieldBase recipe EditTimeEntryScreen
+  // uses for its Start–End row.
   const compactInputStyle: React.CSSProperties = {
     height: 32,
     background: colors.inputBg,
@@ -120,7 +163,7 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
     if (!canSave) return;
     const task = tasks.find((t) => t.id === taskId);
     const weekdaysStr = [...weekdays].sort((a, b) => a - b).join(",");
-    const durationMinutes = (parseInt(durationH, 10) || 0) * 60 + (parseInt(durationM, 10) || 0);
+    const durationMinutes = timeDiffMinutes(startTime, endTime);
     if (schedule) {
       await updateSchedule(schedule.id, taskId, task?.name ?? "", weekdaysStr, startTime, durationMinutes, autoStart);
     } else {
@@ -210,57 +253,30 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
             </div>
           </div>
 
-          {/* Start time */}
+          {/* Start / End time — label + inputs on one row (like Auto-start
+              below), inputs using the same TimeInput + dash-separator recipe
+              as EditTimeEntryScreen's Start–End row. */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ ...rowLabelStyle, color: colors.textPrimary }}>Start time</span>
-            <TimeInput
-              value={startTime}
-              onChange={setStartTime}
-              style={{ ...inputBase, width: 96, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
-            />
-          </div>
-
-          {/* Duration */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ ...rowLabelStyle, color: colors.textPrimary }}>Duration</span>
-            <div style={{ ...compactInputStyle, width: 96, justifyContent: "center", gap: 4 }}>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={2}
-                value={durationH}
-                onChange={(e) => setDurationH(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                onBlur={() => setDurationH((h) => h.padStart(2, "0"))}
-                style={{ width: 20, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: colors.textPrimary, outline: "none", padding: 0 }}
+            <span style={{ ...rowLabelStyle, color: colors.textPrimary }}>Start / End time</span>
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 0, width: 180 }}>
+              <TimeInput
+                value={startTime}
+                onChange={setStartTime}
+                style={{ ...compactInputStyle, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
               />
-              <span style={{ color: colors.textPrimary, fontSize: 16, fontFamily: "'Inter', sans-serif" }}>:</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={2}
-                value={durationM}
-                onChange={(e) => setDurationM(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                onBlur={() => setDurationM((m) => m.padStart(2, "0"))}
-                style={{ width: 20, border: "none", background: "transparent", textAlign: "center", fontFamily: "'Inter', sans-serif", fontSize: 16, color: colors.textPrimary, outline: "none", padding: 0 }}
+              <div style={{ width: 8, height: 1, backgroundColor: colors.border, flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+              <TimeInput
+                value={endTime}
+                onChange={setEndTime}
+                style={{ ...compactInputStyle, flex: 1, minWidth: 0, padding: "0 12px", textAlign: "center" }}
               />
             </div>
           </div>
 
-          {/* Auto-start */}
+          {/* Auto-start — same pill toggle as Settings' Daily goal. */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ ...rowLabelStyle, color: colors.textPrimary }}>Auto-start</span>
-            <div style={{ ...selectWrapStyle, width: 96 }}>
-              <span style={{ flex: 1, minWidth: 0 }}>{autoStart ? "On" : "Off"}</span>
-              <ChevronDown color={colors.textPrimary} />
-              <select
-                value={autoStart ? "on" : "off"}
-                onChange={(e) => setAutoStart(e.target.value === "on")}
-                style={nativeSelectStyle}
-              >
-                <option value="off">Off</option>
-                <option value="on">On</option>
-              </select>
-            </div>
+            <Toggle on={autoStart} onToggle={() => setAutoStart((v) => !v)} />
           </div>
         </div>
       </div>

@@ -72,8 +72,6 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 export default function SettingsScreen({ onClose }: SettingsScreenProps) {
   const { colors, setThemeSetting } = useTheme();
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [hourlyRate, setHourlyRate] = useState("30");
-  const [commission, setCommission] = useState("0");
   const [goalH, setGoalH] = useState("06");
   const [goalM, setGoalM] = useState("00");
   const [goalMoney, setGoalMoney] = useState("0");
@@ -82,8 +80,6 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
     (async () => {
       const s = await getSettings();
       setSettings(s);
-      setHourlyRate(String(s.hourlyRate));
-      setCommission(String(s.commission));
       setGoalH(String(Math.floor(s.dailyGoalSeconds / 3600)).padStart(2, "0"));
       setGoalM(String(Math.floor((s.dailyGoalSeconds % 3600) / 60)).padStart(2, "0"));
       setGoalMoney(String(s.dailyGoalMoney));
@@ -170,42 +166,6 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
           flexDirection: "column",
           gap: 12,
         }}>
-
-          {/* Hourly rate */}
-          <div style={rowStyle}>
-            <span style={{ ...labelStyle, width: 159 }}>Hourly rate</span>
-            <div style={{ ...inputStyle, width: 180, gap: 8, justifyContent: "space-between" }}>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(e.target.value)}
-                onBlur={() => persist({ ...settings, hourlyRate: Number(hourlyRate) || 0 })}
-                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                style={{ flex: 1, minWidth: 0, border: "none", background: "none", fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", outline: "none" }}
-              />
-              <span style={{ fontSize: 16, color: colors.textSecondary, fontFamily: "'Inter', sans-serif" }}>$</span>
-            </div>
-          </div>
-
-          {/* Commission */}
-          <div style={rowStyle}>
-            <span style={{ ...labelStyle, width: 159 }}>Commission</span>
-            <div style={{ ...inputStyle, width: 180, gap: 8, justifyContent: "space-between" }}>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={commission}
-                onChange={(e) => setCommission(e.target.value)}
-                onBlur={() => persist({ ...settings, commission: Number(commission) || 0 })}
-                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                style={{ flex: 1, minWidth: 0, border: "none", background: "none", fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", outline: "none" }}
-              />
-              <span style={{ fontSize: 16, color: colors.textSecondary, fontFamily: "'Inter', sans-serif" }}>%</span>
-            </div>
-          </div>
-
-          {divider}
 
           {/* Daily goal */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
@@ -328,6 +288,30 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
                 <option value="system">System</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+
+          {divider}
+
+          {/* Focus session */}
+          <div style={rowStyle}>
+            <span style={{ ...labelStyle, width: 175 }}>Focus session</span>
+            <div style={selectWrapStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {settings.focusMinutes === 0 ? "Off" : `${settings.focusMinutes} minutes`}
+              </span>
+              <ChevronDown color={colors.textPrimary} />
+              <select
+                value={settings.focusMinutes}
+                onChange={(e) => persist({ ...settings, focusMinutes: Number(e.target.value) })}
+                style={nativeSelectStyle}
+              >
+                <option value={0}>Off</option>
+                <option value={15}>15 minutes</option>
+                <option value={25}>25 minutes</option>
+                <option value={45}>45 minutes</option>
+                <option value={50}>50 minutes</option>
               </select>
             </div>
           </div>

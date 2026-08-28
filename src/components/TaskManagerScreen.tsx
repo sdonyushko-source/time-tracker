@@ -1,16 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { confirm } from "@tauri-apps/plugin-dialog";
-import { Task, getTasks, createTask, deleteTask, renameTask } from "../db";
+import { useState, useEffect } from "react";
+import { Task, Client, TimeEntry, getTasks, getClients, getAllTasks, getMonthEntries } from "../db";
+import { computeVisibleClients, clientDisplayName, resolveClientId, formatTimeRU, formatAmount } from "../utils";
 import { useTheme } from "../ThemeContext";
 import TitleBarSpacer from "./TitleBarSpacer";
-
-const ThreeDotsIcon = ({ color }: { color: string }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="5" r="1.5" fill={color}/>
-    <circle cx="12" cy="12" r="1.5" fill={color}/>
-    <circle cx="12" cy="19" r="1.5" fill={color}/>
-  </svg>
-);
+import ClientScreen from "./ClientScreen";
+import ClientAvatar from "./ClientAvatar";
 
 const CloseIcon = ({ color }: { color: string }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -22,67 +16,103 @@ interface TaskManagerScreenProps {
   onClose: () => void;
 }
 
+// Every task belongs to a client — the default ("No client") included, see
+// resolveClientId in utils.ts — so this screen is a pure clients list, no
+// flat task list at the root: there's no such thing as a task outside a
+// client. Tasks are only ever seen/added/renamed/deleted from inside
+// ClientScreen, one client at a time — including the sole client, so this
+// list always renders even when there's just one card to show.
 export default function TaskManagerScreen({ onClose }: TaskManagerScreenProps) {
   const { colors } = useTheme();
-  const inputBase: React.CSSProperties = {
-    height: 48,
-    background: colors.inputBg,
-    border: `1px solid ${colors.border}`,
-    borderRadius: 8,
-    padding: "12px 16px",
-    fontSize: 16,
-    color: colors.textPrimary,
-    fontFamily: "'Inter', sans-serif",
-    outline: "none",
-    boxSizing: "border-box",
-  };
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTaskName, setNewTaskName] = useState("");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
-  const newTaskInputRef = useRef<HTMLInputElement>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
+  const [hoveredClientId, setHoveredClientId] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      setTasks(await getTasks());
-    })();
-  }, []);
+  // Non-null opens ClientScreen: an existing client to view/edit, or
+  // {client: null} for "New client".
+  const [openClient, setOpenClient] = useState<{ client: Client | null } | null>(null);
 
-  const handleSaveTask = async () => {
-    const name = (newTaskInputRef.current?.value ?? newTaskName).trim();
-    if (!name) return;
-    try {
-      await createTask(name);
-      setTasks(await getTasks());
-      setNewTaskName("");
-      setIsAddingTask(false);
-    } catch (err) {
-      console.error("createTask failed:", err);
-    }
+  const refreshAll = () => {
+    getTasks().then(setTasks);
+    getClients().then(setClients);
+    getAllTasks().then(setAllTasks);
+    getMonthEntries().then(setMonthEntries);
   };
 
-  const handleCancelTask = () => {
-    setNewTaskName("");
-    setIsAddingTask(false);
-  };
+  useEffect(() => { refreshAll(); }, []);
 
-  const handleDeleteTask = async (id: string) => {
-    const ok = await confirm("Are you sure you want to delete this task?", { title: "Delete task", kind: "warning" });
-    if (!ok) return;
-    await deleteTask(id);
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
+  if (openClient) {
+    const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+    return (
+      <ClientScreen
+        client={openClient.client}
+        defaultClientId={defaultClientId}
+        onClose={() => { setOpenClient(null); refreshAll(); }}
+      />
+    );
+  }
 
-  const handleRenameTask = async (id: string) => {
-    const name = renameValue.trim();
-    if (!name) return;
-    await renameTask(id, name);
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, name } : t));
-    setRenamingId(null);
-    setRenameValue("");
+  const visibleClients = computeVisibleClients(clients, tasks);
+  const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+
+  const renderClientCard = (client: Client) => {
+    const clientTaskIds = new Set(
+      allTasks.filter((t) => resolveClientId(t, defaultClientId) === client.id).map((t) => t.id)
+    );
+    const activeTaskCount = tasks.filter((t) => resolveClientId(t, defaultClientId) === client.id).length;
+    const clientEntries = monthEntries.filter((e) => e.endTime && clientTaskIds.has(e.taskId));
+    const seconds = clientEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+    const amount = clientEntries.reduce((s, e) => s + ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0), 0);
+    const displayName = clientDisplayName(client);
+
+    return (
+      <div
+        key={client.id}
+        onClick={() => setOpenClient({ client })}
+        onMouseEnter={() => setHoveredClientId(client.id)}
+        onMouseLeave={() => setHoveredClientId(null)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "4px 8px",
+          borderRadius: 8,
+          background: hoveredClientId === client.id ? colors.cardRowHover : "transparent",
+          cursor: "pointer",
+          boxSizing: "border-box",
+          transition: "background 0.2s ease",
+        }}
+      >
+        <ClientAvatar
+          name={client.name}
+          avatarColor={client.avatarColor}
+          avatarEmoji={client.avatarEmoji}
+          size={36}
+        />
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <span style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 15, color: colors.textPrimary,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+            }}>
+              {displayName}
+            </span>
+            <span style={{
+              padding: "0 4px", background: colors.badgeBg, borderRadius: 4, fontSize: 12,
+              fontWeight: 500, color: colors.badgeText, flexShrink: 0, lineHeight: "16px",
+            }}>
+              {client.isPaid ? `$${client.rate}/hr` : "Unpaid"}
+            </span>
+          </div>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 12.5, color: colors.textSecondary }}>
+            {activeTaskCount} {activeTaskCount === 1 ? "task" : "tasks"} · {formatTimeRU(seconds)}
+            {client.isPaid ? ` · ${formatAmount(amount, "USD")} this month` : " this month"}
+          </span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -105,168 +135,29 @@ export default function TaskManagerScreen({ onClose }: TaskManagerScreenProps) {
           lineHeight: "24px",
           color: colors.textPrimary,
         }}>
-          Task manager
+          Task management
         </span>
         <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
           <CloseIcon color={colors.textPrimary} />
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 24px 24px" }}>
-        {/* ── Tasks block ── */}
-        <div style={{
-          background: colors.cardBg,
-          borderRadius: 12,
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}>
-          {/* Header row */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 24px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: colors.cardBg, borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: colors.textPrimary, lineHeight: "24px" }}>
-              Tasks
+              Clients
             </span>
-            {!isAddingTask && !renamingId ? (
-              <span
-                onClick={() => setIsAddingTask(true)}
-                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-              >
-                Add
-              </span>
-            ) : isAddingTask ? (
-              <div style={{ display: "flex", gap: 20 }}>
-                <span
-                  onClick={handleCancelTask}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Cancel
-                </span>
-                <span
-                  onClick={handleSaveTask}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Save
-                </span>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 20 }}>
-                <span
-                  onClick={() => { setRenamingId(null); setRenameValue(""); }}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#FF5429", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Cancel
-                </span>
-                <span
-                  onClick={() => handleRenameTask(renamingId!)}
-                  style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
-                >
-                  Save
-                </span>
-              </div>
-            )}
+            <span
+              onClick={() => setOpenClient({ client: null })}
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 16, color: "#7381D3", lineHeight: "24px", cursor: "pointer" }}
+            >
+              Add client
+            </span>
           </div>
 
-          {/* New task input */}
-          {isAddingTask && (
-            <input
-              ref={newTaskInputRef}
-              autoFocus
-              type="text"
-              placeholder="Task name"
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveTask();
-                if (e.key === "Escape") handleCancelTask();
-              }}
-              style={{ ...inputBase, width: "100%" }}
-            />
-          )}
-
-          {/* Task list */}
-          {tasks.map((task) => (
-            <div key={task.id}>
-              {renamingId === task.id ? (
-                <input
-                  autoFocus
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleRenameTask(task.id);
-                    if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
-                  }}
-                  style={{ ...inputBase, width: "100%" }}
-                />
-              ) : (
-                <div
-                  onMouseEnter={() => setHoveredTaskId(task.id)}
-                  onMouseLeave={() => setHoveredTaskId(null)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", position: "relative" }}
-                >
-                  <span style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 16,
-                    color: colors.textPrimary,
-                    lineHeight: "24px",
-                    maxWidth: 304,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {task.name}
-                  </span>
-                  <button
-                    onClick={() => setOpenMenuId(openMenuId === task.id ? null : task.id)}
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, opacity: hoveredTaskId === task.id || openMenuId === task.id ? 1 : 0, transition: "opacity 0.3s ease" }}
-                  >
-                    <ThreeDotsIcon color={colors.textPrimary} />
-                  </button>
-                  {openMenuId === task.id && (
-                    <>
-                      <div
-                        onClick={() => setOpenMenuId(null)}
-                        style={{ position: "fixed", inset: 0, zIndex: 98 }}
-                      />
-                      <div style={{
-                        position: "absolute",
-                        top: 36,
-                        right: 0,
-                        background: colors.menuBg,
-                        borderRadius: 8,
-                        padding: 8,
-                        boxShadow: colors.menuShadow,
-                        zIndex: 99,
-                        display: "flex",
-                        flexDirection: "column",
-                        minWidth: 120,
-                      }}>
-                        <div
-                          onClick={() => { setOpenMenuId(null); setRenamingId(task.id); setRenameValue(task.name); }}
-                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: colors.textPrimary, transition: "background 0.3s ease" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = colors.menuItemHover)}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          Rename
-                        </div>
-                        <div
-                          onClick={() => { setOpenMenuId(null); handleDeleteTask(task.id); }}
-                          style={{ padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#FF5429", transition: "background 0.3s ease" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = colors.menuItemHover)}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          Delete
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          {visibleClients.map((client) => renderClientCard(client))}
         </div>
-
       </div>
     </div>
   );

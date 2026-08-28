@@ -5,6 +5,13 @@ import { useTheme } from "../ThemeContext";
 
 interface MainContentProps {
   recentEntries: TimeEntry[];
+  // Tasks on the default ("No client") client never get an entry here —
+  // see App.tsx.
+  clientLabelByTaskId: Record<string, string>;
+  // Subset of clientLabelByTaskId's keys — only present when that client's
+  // avatar is in emoji mode (a letter/dash avatar has no real color of its
+  // own to show). See App.tsx.
+  clientDotColorByTaskId: Record<string, string>;
   onDateClick: (date: string) => void;
   onTaskClick: (taskId: string, date: string) => void;
   onTaskStart: (taskId: string) => void;
@@ -42,7 +49,7 @@ function formatDateLabel(date: string, yesterday: string): string {
 // TodaySection, just visually de-emphasized) so the page doesn't feel empty
 // right after midnight. Older days stay a plain date + total-time row each
 // — that detail lives in History instead.
-export default function MainContent({ recentEntries, onDateClick, onTaskClick, onTaskStart }: MainContentProps) {
+export default function MainContent({ recentEntries, clientLabelByTaskId, clientDotColorByTaskId, onDateClick, onTaskClick, onTaskStart }: MainContentProps) {
   const { colors } = useTheme();
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
@@ -129,19 +136,31 @@ export default function MainContent({ recentEntries, onDateClick, onTaskClick, o
                         transition: "background 0.3s ease",
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: colors.textSecondary, lineHeight: "16px", flexShrink: 1 }}>
-                          {task.name}
-                        </span>
-                        {task.count > 1 && (
-                          <span style={{
-                            padding: "0 4px", background: isTaskHovered ? colors.inputBg : colors.badgeBg,
-                            borderRadius: 4, fontSize: 12, fontWeight: 500, color: colors.badgeText,
-                            flexShrink: 0, textAlign: "center", lineHeight: "16px",
-                            transition: "background 0.3s ease",
-                          }}>
-                            {task.count}
+                      <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: colors.textSecondary, lineHeight: "16px", flexShrink: 1 }}>
+                            {task.name}
                           </span>
+                          {task.count > 1 && (
+                            <span style={{
+                              padding: "0 4px", background: isTaskHovered ? colors.inputBg : colors.badgeBg,
+                              borderRadius: 4, fontSize: 12, fontWeight: 500, color: colors.badgeText,
+                              flexShrink: 0, textAlign: "center", lineHeight: "16px",
+                              transition: "background 0.3s ease",
+                            }}>
+                              {task.count}
+                            </span>
+                          )}
+                        </div>
+                        {clientLabelByTaskId[task.id] && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden" }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: colors.textSecondary }}>
+                              {clientLabelByTaskId[task.id]}
+                            </span>
+                            {clientDotColorByTaskId[task.id] && (
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: clientDotColorByTaskId[task.id] }} />
+                            )}
+                          </div>
                         )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { Task, TimeEntry } from "../db";
-import { formatTime } from "../utils";
+import { Task, Client, TimeEntry } from "../db";
+import { formatTime, computeVisibleClients, clientDisplayName, resolveClientId } from "../utils";
 import { updateEntry, deleteEntry } from "../entryOps";
 import { useTheme } from "../ThemeContext";
 import ButtonBar from "./ButtonBar";
@@ -11,6 +11,7 @@ import TitleBarSpacer from "./TitleBarSpacer";
 interface EditTimeEntryScreenProps {
   entries: TimeEntry[];
   tasks: Task[];
+  clients: Client[];
   onClose: () => void;
 }
 
@@ -88,7 +89,7 @@ const ChevronDown = ({ color }: { color: string }) => (
   </svg>
 );
 
-export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTimeEntryScreenProps) {
+export default function EditTimeEntryScreen({ entries, tasks, clients, onClose }: EditTimeEntryScreenProps) {
   const { colors } = useTheme();
   const [sessions, setSessions] = useState<SessionEdit[]>(() =>
     entries.map((e) => ({
@@ -102,6 +103,25 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
   );
 
   const isMultiple = sessions.length > 1;
+
+  // All sessions here share one taskId (App.tsx filters entries by a single
+  // taskId+date before opening this screen), so they share one client too —
+  // shown once under the header rather than repeated per session. Only
+  // shown at all when there are 2+ visible clients (see
+  // computeVisibleClients in utils.ts), same threshold as everywhere else
+  // a client label appears.
+  const visibleClients = computeVisibleClients(clients, tasks);
+  const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+  const sharedTaskId = entries[0]?.taskId ?? sessions[0]?.taskId;
+  const sharedClientId = (() => {
+    const task = tasks.find((t) => t.id === sharedTaskId);
+    return task ? resolveClientId(task, defaultClientId) : defaultClientId;
+  })();
+  const sharedClient = clients.find((c) => c.id === sharedClientId);
+  // Every session's task dropdown is restricted to the same client's tasks
+  // — otherwise the shared client line above would go stale the moment a
+  // session's task changes to a different client's.
+  const sameClientTasks = tasks.filter((t) => resolveClientId(t, defaultClientId) === sharedClientId);
 
   const updateSession = (index: number, patch: Partial<SessionEdit>) => {
     setSessions((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -177,15 +197,22 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
       <TitleBarSpacer />
 
       {/* Header */}
-      <div style={{ flexShrink: 0, padding: "24px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: colors.textPrimary }}>
-          Edit time entry
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6L18 18" stroke={colors.textPrimary} strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
+      <div style={{ flexShrink: 0, padding: "24px 24px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 20, color: colors.textPrimary }}>
+            Edit time entry
+          </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6L18 18" stroke={colors.textPrimary} strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+        {visibleClients.length >= 2 && sharedClient && (
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: colors.textSecondary }}>
+            {clientDisplayName(sharedClient)}
+          </span>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 84px" }}>
@@ -248,7 +275,7 @@ export default function EditTimeEntryScreen({ entries, tasks, onClose }: EditTim
                       fontFamily: "'Inter', sans-serif",
                     }}
                   >
-                    {tasks.map((t) => (
+                    {sameClientTasks.map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>

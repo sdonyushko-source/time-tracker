@@ -44,19 +44,24 @@ function currentYearMonth(): string {
 }
 
 interface TaskRow { taskId: string; name: string; seconds: number; isActive: boolean }
-interface DayGroup { date: string; totalSeconds: number; tasks: TaskRow[] }
-interface MonthGroup { ym: string; totalSeconds: number; days: DayGroup[] }
+interface DayGroup { date: string; totalSeconds: number; totalAmount: number; tasks: TaskRow[] }
+interface MonthGroup { ym: string; totalSeconds: number; totalAmount: number; days: DayGroup[] }
 
+// Amount is summed from each entry's own hourlyRateSnapshot, not a flat
+// rate — rate lives per-client now (see Client in db.ts), so entries
+// tracked under different clients (or at a rate later changed) never
+// shared a single number to begin with.
 function groupEntries(entries: TimeEntry[], activeEntryId: string | null): MonthGroup[] {
-  const monthMap = new Map<string, Map<string, Map<string, { name: string; seconds: number; isActive: boolean }>>>();
+  const monthMap = new Map<string, Map<string, Map<string, { name: string; seconds: number; amount: number; isActive: boolean }>>>();
   for (const e of entries) {
     const ym = e.date.slice(0, 7);
     if (!monthMap.has(ym)) monthMap.set(ym, new Map());
     const dayMap = monthMap.get(ym)!;
     if (!dayMap.has(e.date)) dayMap.set(e.date, new Map());
     const taskMap = dayMap.get(e.date)!;
-    const existing = taskMap.get(e.taskId) ?? { name: e.taskNameSnapshot, seconds: 0, isActive: false };
+    const existing = taskMap.get(e.taskId) ?? { name: e.taskNameSnapshot, seconds: 0, amount: 0, isActive: false };
     existing.seconds += e.durationSeconds ?? 0;
+    existing.amount += ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0);
     if (e.id === activeEntryId) existing.isActive = true;
     taskMap.set(e.taskId, existing);
   }
@@ -65,10 +70,20 @@ function groupEntries(entries: TimeEntry[], activeEntryId: string | null): Month
     const days: DayGroup[] = [];
     for (const [date, taskMap] of dayMap) {
       const tasks = Array.from(taskMap.entries()).map(([taskId, v]) => ({ taskId, ...v }));
-      days.push({ date, totalSeconds: tasks.reduce((s, t) => s + t.seconds, 0), tasks });
+      days.push({
+        date,
+        totalSeconds: tasks.reduce((s, t) => s + t.seconds, 0),
+        totalAmount: tasks.reduce((s, t) => s + t.amount, 0),
+        tasks,
+      });
     }
     days.sort((a, b) => b.date.localeCompare(a.date));
-    result.push({ ym, totalSeconds: days.reduce((s, d) => s + d.totalSeconds, 0), days });
+    result.push({
+      ym,
+      totalSeconds: days.reduce((s, d) => s + d.totalSeconds, 0),
+      totalAmount: days.reduce((s, d) => s + d.totalAmount, 0),
+      days,
+    });
   }
   result.sort((a, b) => b.ym.localeCompare(a.ym));
   return result;
@@ -179,7 +194,7 @@ export default function HistoryScreen({ activeEntryId, focusDate, settings, onCl
   pastMonths.forEach((month) => {
     const isExpanded = expandedMonths.has(month.ym);
     const isHighlighted = highlightKey === month.ym;
-    const amount = (month.totalSeconds / 3600) * settings.hourlyRate;
+    const amount = month.totalAmount;
     blocks.push({
       key: `month-${month.ym}`,
       node: (

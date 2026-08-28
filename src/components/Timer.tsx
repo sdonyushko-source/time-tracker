@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "../db";
-import TaskPicker from "./TaskPicker";
+import TaskPicker, { TaskPickerGroup } from "./TaskPicker";
 import { useTheme } from "../ThemeContext";
 
 interface TimerProps {
@@ -9,8 +9,41 @@ interface TimerProps {
   onToggle: () => void;
   onTimeClick?: () => void;
   tasks: Task[];
+  clientGroups?: TaskPickerGroup[] | null;
   selectedTaskId: string;
   onTaskSelect: (id: string) => void;
+  focusActive: boolean;
+  focusStartedAtMs: number | null;
+  focusDurationMs: number;
+}
+
+// Ring circumference for r=27 (see FocusRing below) — stroke-dasharray needs
+// this to turn a 0..1 progress fraction into an arc length.
+const FOCUS_RING_CIRCUMFERENCE = 2 * Math.PI * 27;
+
+function FocusRing({ pct, colors }: { pct: number; colors: { border: string; textSecondary: string } }) {
+  const dash = FOCUS_RING_CIRCUMFERENCE * pct;
+  return (
+    <svg
+      width="60"
+      height="60"
+      viewBox="0 0 60 60"
+      style={{ position: "absolute", top: -6, left: -6, pointerEvents: "none" }}
+    >
+      <circle cx="30" cy="30" r="27" fill="none" stroke={colors.border} strokeWidth="2" />
+      <circle
+        cx="30"
+        cy="30"
+        r="27"
+        fill="none"
+        stroke={colors.textSecondary}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${FOCUS_RING_CIRCUMFERENCE - dash}`}
+        transform="rotate(-90 30 30)"
+      />
+    </svg>
+  );
 }
 
 function formatTime(seconds: number): string {
@@ -52,13 +85,27 @@ const StopSVG = ({ hovered }: { hovered: boolean }) => (
   </svg>
 );
 
-export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, selectedTaskId, onTaskSelect }: TimerProps) {
+export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick, tasks, clientGroups, selectedTaskId, onTaskSelect, focusActive, focusStartedAtMs, focusDurationMs }: TimerProps) {
   const { colors } = useTheme();
   const [taskHovered, setTaskHovered] = useState(false);
   const [playStopHovered, setPlayStopHovered] = useState(false);
 
+  // Derived straight from wall-clock time on every render (App forces a
+  // render once a second while a cycle is running) rather than decremented —
+  // a throttled/skipped render just shows the ring a moment behind, it can
+  // never drift out of sync with the actual deadline.
+  const focusPct = focusActive && focusStartedAtMs !== null && focusDurationMs > 0
+    ? Math.min(1, Math.max(0, (Date.now() - focusStartedAtMs) / focusDurationMs))
+    : 0;
+
   return (
-    <div style={{ position: "relative", height: 56, width: "100%" }}>
+    // marginTop only when a cycle is running: the ring pokes 6px above the
+    // Play/Stop button (see FocusRing above), and in full-mode this Timer
+    // sits flush against the top of a scrollable container (App.tsx) —
+    // without this, that overflow-y clips the ring's top edge. Conditional
+    // so idle layout (the overwhelming common case, and the one CLAUDE.md's
+    // exact pixel values describe) never shifts.
+    <div style={{ position: "relative", height: 56, width: "100%", marginTop: focusActive ? 6 : 0 }}>
       <div style={{
         position: "absolute",
         left: 24,
@@ -71,6 +118,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <TaskPicker
             tasks={tasks}
+            clientGroups={clientGroups}
             selectedTaskId={selectedTaskId}
             onSelect={onTaskSelect}
             color={taskHovered ? "#7381D3" : colors.textPrimary}
@@ -118,6 +166,7 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
             <div style={{ position: "absolute", top: 0, left: 0, opacity: isActive ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}>
               <StopSVG hovered={playStopHovered} />
             </div>
+            {focusActive && <FocusRing pct={focusPct} colors={colors} />}
           </button>
         </div>
       </div>

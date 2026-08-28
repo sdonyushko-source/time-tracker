@@ -15,19 +15,19 @@ import ScheduleScreen from "./components/ScheduleScreen";
 import EditTimeEntryScreen from "./components/EditTimeEntryScreen";
 import EditActiveEntryScreen from "./components/EditActiveEntryScreen";
 import Tooltip from "./components/Tooltip";
+import { AVATAR_COLORS } from "./components/ClientAvatar";
 import {
-  Settings, Task, TimeEntry,
-  initDB, getSettings, getTasks,
+  Settings, Task, TimeEntry, Client,
+  initDB, getSettings, getTasks, getAllTasks, getClients,
   getLast7DaysEntries, getWeekEntries, getMonthEntries, getAllEntries, getRecentDaysEntries,
   startEntry, stopEntry, getActiveEntry, getSchedules,
 } from "./db";
-import { formatAmount, formatTimeRU, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange } from "./utils";
+import { formatAmount, formatTimeRU, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange, computeVisibleClients, clientDisplayName, resolveClientId } from "./utils";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 
 type Screen = "timer" | "settings" | "taskManager" | "editTimeEntry" | "editActiveEntry" | "history" | "statistics" | "schedule";
 
 const DEFAULT_SETTINGS: Settings = {
-  hourlyRate: 30,
   currency: "USD",
   dailyGoalSeconds: 21600,
   dailyGoalEnabled: true,
@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: Settings = {
   dailyGoalMoney: 0,
   roundReportMinutes: 10,
   theme: "system",
-  commission: 0,
+  focusMinutes: 0,
 };
 
 function getLocalDate(): string {
@@ -70,9 +70,31 @@ function AppContent() {
   // from a stale start time.
   const [activeStartMs, setActiveStartMs] = useState<number | null>(null);
   const currentDateRef = useRef<string>(getLocalDate());
+  // Focus (Pomodoro) cycle. The actual countdown lives in Rust (see
+  // start_focus in lib.rs) for the same reason the tray timer does — a
+  // renderer-side setInterval gets throttled once the window loses
+  // visibility. focusStartedAtMs/focusDurationMs are only used to *derive*
+  // the ring's progress and the remaining-time tooltip fresh from wall-clock
+  // time on each render; focusTick below just forces those re-renders once a
+  // second while a cycle is running.
+  const [focusActive, setFocusActive] = useState(false);
+  const [focusStartedAtMs, setFocusStartedAtMs] = useState<number | null>(null);
+  const [focusDurationMs, setFocusDurationMs] = useState(0);
+  const [, setFocusTick] = useState(0);
+  // The task name a running cycle's notification should mention — captured
+  // at start and re-sent as-is if the cycle gets rescheduled mid-flight (see
+  // the settings.focusMinutes effect below), since the task itself can't
+  // change without cancelling the cycle first (see cancelFocus's callers).
+  const focusTaskNameRef = useRef<string | null>(null);
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  // Includes archived tasks — only used to resolve a past entry's client for
+  // money math (footer, commission), where a since-deleted task must still
+  // attribute correctly. Interactive stuff (picker, labels, new-entry rate)
+  // uses `tasks` (active only) instead.
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [selectedEditTaskId, setSelectedEditTaskId] = useState("");
@@ -132,6 +154,13 @@ function AppContent() {
   // direct callback props, since Timer no longer owns any menu state.
   useEffect(() => {
     const unlisten = listen<string>("menu-action", (event) => {
+      // The native task-picker submenu (see show_task_picker_menu in
+      // lib.rs) reuses this same event, with task ids prefixed "task:" so
+      // they can't collide with the fixed action ids below.
+      if (event.payload.startsWith("task:")) {
+        setSelectedTaskId(event.payload.slice(5));
+        return;
+      }
       switch (event.payload) {
         case "copy_report": handleCopyReportRef.current(); break;
         case "statistics": setScreen("statistics"); break;
@@ -145,17 +174,40 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fired once by the Rust thread spawned in start_focus, only if the cycle
+  // ran to completion uninterrupted (see FocusState's generation counter in
+  // lib.rs) — a cancelled cycle never reaches this. The notification itself
+  // is also sent from that same Rust thread, not here.
+  useEffect(() => {
+    const unlisten = listen("focus-complete", () => {
+      setFocusActive(false);
+      setFocusStartedAtMs(null);
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, []);
+
+  // Forces Timer's ring and TitleBarButtons' tooltip to recompute their
+  // wall-clock-derived progress/remaining-time once a second while a cycle
+  // is running — see the comment on focusStartedAtMs above.
+  useEffect(() => {
+    if (!focusActive) return;
+    const interval = setInterval(() => setFocusTick((n) => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, [focusActive]);
+
   useEffect(() => {
     (async () => {
       try {
         await initDB();
-        const [s, t, last7, week, month, recent, active] = await Promise.all([
-          getSettings(), getTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(),
+        const [s, t, cl, allT, last7, week, month, recent, active] = await Promise.all([
+          getSettings(), getTasks(), getClients(), getAllTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(),
           getRecentDaysEntries(5), getActiveEntry(),
         ]);
         setSettings(s);
         setThemeSetting(s.theme);
         setTasks(t);
+        setClients(cl);
+        setAllTasks(allT);
         setLast7Entries(last7);
         setWeekEntries(week);
         setMonthEntries(month);
@@ -213,12 +265,14 @@ function AppContent() {
   }, []);
 
   const loadData = useCallback(async () => {
-    const [s, t, last7, week, month, recent] = await Promise.all([
-      getSettings(), getTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(), getRecentDaysEntries(5),
+    const [s, t, cl, allT, last7, week, month, recent] = await Promise.all([
+      getSettings(), getTasks(), getClients(), getAllTasks(), getLast7DaysEntries(), getWeekEntries(), getMonthEntries(), getRecentDaysEntries(5),
     ]);
     setSettings(s);
     setThemeSetting(s.theme);
     setTasks(t);
+    setClients(cl);
+    setAllTasks(allT);
     setSelectedTaskId((prev) => (t.find((task) => task.id === prev) ? prev : t.length ? t[0].id : ""));
     setLast7Entries(last7);
     setWeekEntries(week);
@@ -237,11 +291,79 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [loadData]);
 
+  // Cancels a running focus cycle (invoke is harmless as a no-op if none is
+  // running — it just bumps a generation counter nothing is waiting on).
+  // Called unconditionally from both stopActive and handleTaskStart below,
+  // per spec: a cycle is tied to whichever task was running when it
+  // started, so stopping that task or switching to another one ends it —
+  // silently, no notification (see start_focus's generation check).
+  const cancelFocus = () => {
+    invoke("stop_focus").catch(() => {});
+    setFocusActive(false);
+    setFocusStartedAtMs(null);
+    focusTaskNameRef.current = null;
+  };
+
+  // Shared by the automatic start (task Play — see handleToggle/
+  // handleTaskStart) and the manual titlebar icon (still available as an
+  // override — e.g. to start a session against an already-running task, or
+  // to cancel just the break reminder without stopping the task itself).
+  const startFocus = async (taskName: string | null) => {
+    if (settings.focusMinutes <= 0) return;
+    let granted = await isPermissionGranted();
+    if (!granted) granted = (await requestPermission()) === "granted";
+    // Permission denied still starts the cycle — spec: no banner, but the
+    // ring/icon work exactly the same.
+    const durationMs = settings.focusMinutes * 60000;
+    focusTaskNameRef.current = taskName;
+    await invoke("start_focus", { durationSecs: settings.focusMinutes * 60, taskName }).catch(() => {});
+    setFocusStartedAtMs(Date.now());
+    setFocusDurationMs(durationMs);
+    setFocusActive(true);
+  };
+
+  const toggleFocus = () => {
+    if (focusActive) {
+      cancelFocus();
+    } else {
+      const taskName = isActive ? tasks.find((t) => t.id === selectedTaskId)?.name ?? null : null;
+      startFocus(taskName);
+    }
+  };
+
+  // A cycle in progress is tied to the settings.focusMinutes value it was
+  // started with, not a frozen copy of it — changing the setting in
+  // Settings (which only reaches this component's `settings` state once,
+  // on return to the timer screen — see SettingsScreen's onClose) reschedules
+  // the still-running cycle against the new total, keeping the same
+  // startedAt so the ring/tooltip immediately reflect the new percentage.
+  // If the new (shorter) duration has already elapsed, the cycle just ends
+  // now instead — silently, like a manual cancel, not as if it had
+  // completed on its own.
+  useEffect(() => {
+    if (!focusActive || focusStartedAtMs === null) return;
+    if (settings.focusMinutes <= 0) {
+      cancelFocus();
+      return;
+    }
+    const newDurationMs = settings.focusMinutes * 60000;
+    const elapsedMs = Date.now() - focusStartedAtMs;
+    if (elapsedMs >= newDurationMs) {
+      cancelFocus();
+      return;
+    }
+    setFocusDurationMs(newDurationMs);
+    const remainingSecs = Math.max(1, Math.ceil((newDurationMs - elapsedMs) / 1000));
+    invoke("start_focus", { durationSecs: remainingSecs, taskName: focusTaskNameRef.current }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.focusMinutes]);
+
   // Shared stop path — used by handleToggle (manual Stop) and by the
   // schedule checker below (auto-stop once a rule's duration elapses), so
   // both go through the exact same stopEntry call and isActive/activeStartMs
   // state updates that drive the native tray timer.
   const stopActive = async () => {
+    cancelFocus();
     const elapsed = startTimeRef.current !== null
       ? Math.floor((Date.now() - startTimeRef.current) / 1000)
       : elapsedSeconds;
@@ -332,34 +454,49 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Rate/currency for a new entry come from whichever client the task
+  // belongs to (or the default client, for clientId=NULL tasks) — Settings
+  // no longer holds a global hourlyRate. An unpaid client always resolves
+  // to 0 (see Client.isPaid in db.ts).
+  const resolveRateForTask = (taskId: string): number => {
+    const task = tasks.find((t) => t.id === taskId);
+    const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+    const clientId = task ? resolveClientId(task, defaultClientId) : defaultClientId;
+    const client = clients.find((c) => c.id === clientId);
+    return client && client.isPaid ? client.rate : 0;
+  };
+
   const handleToggle = async () => {
     if (isActive) {
       await stopActive();
     } else {
       if (!selectedTaskId) return;
       const task = tasks.find((t) => t.id === selectedTaskId);
-      const id = await startEntry(selectedTaskId, task?.name ?? "", settings.hourlyRate, settings.currency);
+      const id = await startEntry(selectedTaskId, task?.name ?? "", resolveRateForTask(selectedTaskId), settings.currency);
       setActiveEntryId(id);
       startTimeRef.current = Date.now();
       setActiveStartMs(startTimeRef.current);
       setIsActive(true);
+      await startFocus(task?.name ?? null);
       await refresh();
     }
   };
 
   const handleTaskStart = async (taskId: string): Promise<string> => {
+    cancelFocus();
     if (isActive) {
       const elapsed = startTimeRef.current !== null ? Math.floor((Date.now() - startTimeRef.current) / 1000) : elapsedSeconds;
       if (activeEntryId) await stopEntry(activeEntryId, new Date().toISOString(), elapsed);
     }
     const task = tasks.find((t) => t.id === taskId);
-    const id = await startEntry(taskId, task?.name ?? "", settings.hourlyRate, settings.currency);
+    const id = await startEntry(taskId, task?.name ?? "", resolveRateForTask(taskId), settings.currency);
     setActiveEntryId(id);
     setSelectedTaskId(taskId);
     startTimeRef.current = Date.now();
     setActiveStartMs(startTimeRef.current);
     setElapsedSeconds(0);
     setIsActive(true);
+    await startFocus(task?.name ?? null);
     await refresh();
     return id;
   };
@@ -379,7 +516,6 @@ function AppContent() {
     const now = new Date();
     const ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
     const text = buildMonthlyReportText(monthEntries, formatMonthDateRange(ym), {
-      rate: settings.hourlyRate,
       currency: settings.currency,
       roundReportMinutes: settings.roundReportMinutes,
     });
@@ -446,19 +582,70 @@ function AppContent() {
       <EditTimeEntryScreen
         entries={editEntries}
         tasks={tasks}
+        clients={clients}
         onClose={() => { setEditEntriesOverride(null); setScreen(editReturnScreen); setEditReturnScreen("timer"); loadData(); }}
       />
     );
   }
 
   const today = getLocalDate();
-  const todaySeconds = last7Entries
-    .filter((e) => e.date === today && e.endTime !== null)
-    .reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
-  const weekSeconds = weekEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
+  const todayEntries = last7Entries.filter((e) => e.date === today && e.endTime !== null);
   const monthSeconds = monthEntries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0);
-  const rate = settings.hourlyRate;
   const currency = settings.currency;
+
+  // Amounts are summed from each entry's own hourlyRateSnapshot, not one
+  // flat rate — rate lives per-client now (see Client in db.ts), so entries
+  // tracked under different clients (or at a rate later changed) never
+  // shared a single number to begin with.
+  const sumAmount = (list: TimeEntry[]) => list.reduce((s, e) => s + ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0), 0);
+  const todayAmount = sumAmount(todayEntries);
+  const weekAmount = sumAmount(weekEntries);
+  const monthAmount = sumAmount(monthEntries);
+
+  const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+  // allTasks (not tasks) so an entry from a since-archived task still
+  // resolves to the right client for this month's commission math.
+  const taskClientMap: Record<string, string> = {};
+  allTasks.forEach((t) => { taskClientMap[t.id] = resolveClientId(t, defaultClientId); });
+  const clientCommissionMap: Record<string, number> = {};
+  clients.forEach((c) => { clientCommissionMap[c.id] = c.commission; });
+  const monthNetAmount = monthEntries.reduce((s, e) => {
+    const amount = ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0);
+    const commission = clientCommissionMap[taskClientMap[e.taskId] ?? defaultClientId] ?? 0;
+    return s + amount * (1 - commission / 100);
+  }, 0);
+
+  // The client→task submenu picker (see TaskPicker/show_task_picker_menu)
+  // only kicks in once there's more than one client to choose between —
+  // see computeVisibleClients in utils.ts.
+  const visibleClients = computeVisibleClients(clients, tasks);
+  // The sub-label under each task's name, unlike the picker above, always
+  // shows for a task on a named client — regardless of how many clients
+  // currently exist — so "which client is this task under" never depends
+  // on whether a second client happens to exist yet.
+  const clientLabelByTaskId: Record<string, string> = {};
+  // Today's client sub-label gets a small dot in the client's avatar
+  // color next to it — only when that client actually has one (i.e. its
+  // avatar is in emoji mode, see ClientAvatar.tsx; a letter/dash avatar
+  // has no real "color" of its own, colors.inputBg isn't one). Isolated
+  // from clientLabelByTaskId on purpose — MainContent doesn't get this.
+  const clientDotColorByTaskId: Record<string, string> = {};
+  tasks.forEach((t) => {
+    const client = clients.find((c) => c.id === resolveClientId(t, defaultClientId));
+    // Keyed on whether the client actually has a name, not on isDefault —
+    // a renamed default client ("No client" -> a real name, see
+    // ClientScreen) must start showing its label too, and isDefault never
+    // flips back off for it (see backfillClients in db.ts).
+    if (client && client.name && client.name.trim()) {
+      clientLabelByTaskId[t.id] = clientDisplayName(client);
+      if (client.avatarEmoji) clientDotColorByTaskId[t.id] = client.avatarColor ?? AVATAR_COLORS[0];
+    }
+  });
+  const clientGroups = visibleClients.length >= 2
+    ? visibleClients
+        .map((c) => ({ label: clientDisplayName(c), tasks: tasks.filter((t) => resolveClientId(t, defaultClientId) === c.id) }))
+        .filter((g) => g.tasks.length > 0)
+    : null;
 
   return (
     <div style={{ width: 440, height: "100vh", background: colors.pageBg, fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -467,15 +654,15 @@ function AppContent() {
       </div>
       {mainViewMode === "compact" ? (
         <div>
-          <TitleBarButtons isCompact onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} />
-          <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} />
+          <TitleBarButtons isCompact onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} focusMinutes={settings.focusMinutes} onFocusToggle={toggleFocus} />
+          <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} clientGroups={clientGroups} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} />
           <CompactProgress last7Entries={last7Entries} settings={settings} />
         </div>
       ) : (
         <>
-          <TitleBarButtons isCompact={false} onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} />
+          <TitleBarButtons isCompact={false} onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} focusMinutes={settings.focusMinutes} onFocusToggle={toggleFocus} />
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "none" }}>
-            <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} />
+            <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} clientGroups={clientGroups} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} />
             <div style={{
               margin: "8px 8px 12px",
               background: colors.cardBg,
@@ -483,11 +670,13 @@ function AppContent() {
               padding: 8,
               boxSizing: "border-box",
             }}>
-              <TodaySection last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} isActive={isActive} onTaskClick={(taskId, date) => { setEditEntriesOverride(null); setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
+              <TodaySection last7Entries={last7Entries} settings={settings} activeTaskId={selectedTaskId} isActive={isActive} clientLabelByTaskId={clientLabelByTaskId} clientDotColorByTaskId={clientDotColorByTaskId} onTaskClick={(taskId, date) => { setEditEntriesOverride(null); setSelectedEditTaskId(taskId); setSelectedEditDate(date); setScreen("editTimeEntry"); }} onTaskStart={handleTaskStart} />
             </div>
             <div style={{ padding: "0 8px" }}>
               <MainContent
                 recentEntries={recentEntries}
+                clientLabelByTaskId={clientLabelByTaskId}
+                clientDotColorByTaskId={clientDotColorByTaskId}
                 onDateClick={(date) => { setHistoryFocusDate(date); setScreen("history"); }}
                 onTaskClick={(taskId, date) => {
                   const entries = recentEntries
@@ -510,12 +699,12 @@ function AppContent() {
             </div>
             <div style={{ width: 96, display: "flex", justifyContent: "flex-end" }}>
               <Tooltip content="Earned today">
-                <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((todaySeconds / 3600) * rate, currency)}</span>
+                <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount(todayAmount, currency)}</span>
               </Tooltip>
             </div>
             <div style={{ width: 96, display: "flex", justifyContent: "flex-end" }}>
               <Tooltip content="Earned this week">
-                <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((weekSeconds / 3600) * rate, currency)}</span>
+                <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount(weekAmount, currency)}</span>
               </Tooltip>
             </div>
             <div style={{ width: 96, display: "flex", justifyContent: "flex-end" }}>
@@ -523,11 +712,11 @@ function AppContent() {
                 content={
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span>Earned this month</span>
-                    <span>Net of commission: {formatAmount((monthSeconds / 3600) * rate * (1 - settings.commission / 100), currency)}</span>
+                    <span>Net of commission: {formatAmount(monthNetAmount, currency)}</span>
                   </div>
                 }
               >
-                <span style={{ fontSize: 15, fontWeight: 500, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount((monthSeconds / 3600) * rate, currency)}</span>
+                <span style={{ fontSize: 15, fontWeight: 500, color: colors.textPrimary, lineHeight: "24px", fontFamily: "'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatAmount(monthAmount, currency)}</span>
               </Tooltip>
             </div>
           </div>

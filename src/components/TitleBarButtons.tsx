@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "../ThemeContext";
+import Tooltip from "./Tooltip";
 
 interface TitleBarButtonsProps {
   isCompact: boolean;
   onToggleView: () => void;
+  focusActive: boolean;
+  focusStartedAtMs: number | null;
+  focusDurationMs: number;
+  // Icon only shows once this is > 0 ("Off" in Settings otherwise).
+  focusMinutes: number;
+  onFocusToggle: () => void;
 }
 
 // Height of the macOS overlay title bar strip (see tauri.conf.json
@@ -25,6 +32,13 @@ const ExpandIcon = ({ color }: { color: string }) => (
   </svg>
 );
 
+const ClockIcon = ({ color }: { color: string }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="7.25" stroke={color} strokeWidth="1.5" style={{ transition: "stroke 0.1s ease" }} />
+    <path d="M12 8V12L14.5 13.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.1s ease" }} />
+  </svg>
+);
+
 const ThreeDotsIcon = ({ color }: { color: string }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
     <path d="M6 8H18M6 12H18M6 16H18" stroke={color} strokeWidth="1.5" strokeLinecap="round" style={{ transition: "stroke 0.1s ease" }} />
@@ -34,10 +48,19 @@ const ThreeDotsIcon = ({ color }: { color: string }) => (
 // Lives in the overlay title bar strip, to the right of the native
 // close/miniaturize dots — Collapse/Expand (16px to the left of) and the
 // "..." menu button that used to sit in the Timer row itself.
-export default function TitleBarButtons({ isCompact, onToggleView }: TitleBarButtonsProps) {
+export default function TitleBarButtons({ isCompact, onToggleView, focusActive, focusStartedAtMs, focusDurationMs, focusMinutes, onFocusToggle }: TitleBarButtonsProps) {
   const { colors } = useTheme();
   const [toggleHovered, setToggleHovered] = useState(false);
   const [menuHovered, setMenuHovered] = useState(false);
+  const [focusHovered, setFocusHovered] = useState(false);
+
+  // Recomputed from wall-clock time on every render (App re-renders this
+  // once a second while a cycle is running) rather than decremented — same
+  // reasoning as the ring in Timer.tsx: a throttled render just shows a
+  // stale number a moment late, it never drifts.
+  const focusTooltip = focusActive && focusStartedAtMs !== null
+    ? `${Math.max(0, Math.ceil((focusDurationMs - (Date.now() - focusStartedAtMs)) / 60000))} min left`
+    : `Start ${focusMinutes} min focus`;
 
   return (
     <div
@@ -55,6 +78,18 @@ export default function TitleBarButtons({ isCompact, onToggleView }: TitleBarBut
         marginBottom: 8,
       }}
     >
+      {focusMinutes > 0 && (
+        <Tooltip content={focusTooltip}>
+          <button
+            onClick={onFocusToggle}
+            onMouseEnter={() => setFocusHovered(true)}
+            onMouseLeave={() => setFocusHovered(false)}
+            style={{ width: 24, height: 24, background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <ClockIcon color={focusActive || focusHovered ? "#7381D3" : colors.textPrimary} />
+          </button>
+        </Tooltip>
+      )}
       <button
         onClick={onToggleView}
         onMouseEnter={() => setToggleHovered(true)}

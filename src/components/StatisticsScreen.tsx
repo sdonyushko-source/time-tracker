@@ -423,11 +423,19 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
     ? completed.filter((e) => e.date.startsWith(String(pointerDate.getFullYear())))
     : completed.filter((e) => customDays.includes(e.date));
 
+  // Amounts are summed from each entry's own hourlyRateSnapshot, not a flat
+  // rate — rate lives per-client now (see Client in db.ts), so entries
+  // tracked under different clients (or at a rate later changed) never
+  // shared a single number to begin with.
+  const periodAmount = periodEntries.reduce((s, e) => s + ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0), 0);
+  const averageAmount = unitsWithData > 0 ? periodAmount / unitsWithData : 0;
+
   const taskBreakdown = (() => {
-    const map: Record<string, { name: string; seconds: number }> = {};
+    const map: Record<string, { name: string; seconds: number; amount: number }> = {};
     periodEntries.forEach((e) => {
-      if (!map[e.taskId]) map[e.taskId] = { name: e.taskNameSnapshot, seconds: 0 };
+      if (!map[e.taskId]) map[e.taskId] = { name: e.taskNameSnapshot, seconds: 0, amount: 0 };
       map[e.taskId].seconds += e.durationSeconds ?? 0;
+      map[e.taskId].amount += ((e.durationSeconds ?? 0) / 3600) * (e.hourlyRateSnapshot ?? 0);
     });
     return Object.entries(map)
       .map(([id, t]) => ({ id, ...t }))
@@ -439,16 +447,16 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
     if (period === "month") {
       const ym = pointerDate.getFullYear() + "-" + String(pointerDate.getMonth() + 1).padStart(2, "0");
       text = buildMonthlyReportText(completed.filter((e) => e.date.slice(0, 7) === ym), formatMonthDateRange(ym), {
-        rate: settings.hourlyRate, currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
+        currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
       });
     } else if (period === "year") {
       const y = String(pointerDate.getFullYear());
       text = buildMonthlyReportText(completed.filter((e) => e.date.startsWith(y)), y, {
-        rate: settings.hourlyRate, currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
+        currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
       });
     } else {
       text = buildMonthlyReportText(completed.filter((e) => customDays.includes(e.date)), reportRangeLabel, {
-        rate: settings.hourlyRate, currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
+        currency: settings.currency, roundReportMinutes: settings.roundReportMinutes,
       });
     }
     await copyTextToClipboard(text);
@@ -566,7 +574,7 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
             bar-value comments above), so the label never changes. */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
           <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px" }}>Daily average</span>
-          <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>{formatTimeRU(Math.round(averageSeconds))} · {formatAmount((averageSeconds / 3600) * settings.hourlyRate, settings.currency)}</span>
+          <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif" }}>{formatTimeRU(Math.round(averageSeconds))} · {formatAmount(averageAmount, settings.currency)}</span>
         </div>
 
         {/* Per-task breakdown for the whole selected period (week/month/year
@@ -580,14 +588,14 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
             <div key={t.id} style={{ padding: "2px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <span style={{ fontSize: 13, color: colors.textPrimary, lineHeight: "18px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{t.name}</span>
               <span style={{ fontSize: 13, color: colors.textPrimary, lineHeight: "18px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_HOURS_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatTimeRU(t.seconds)}</span>
-              <span style={{ fontSize: 13, color: colors.textSecondary, lineHeight: "18px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_MONEY_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatAmount((t.seconds / 3600) * settings.hourlyRate, settings.currency)}</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary, lineHeight: "18px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_MONEY_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatAmount(t.amount, settings.currency)}</span>
             </div>
           ))}
           {taskBreakdown.length > 0 && (
             <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 2, paddingTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", flex: 1, minWidth: 0 }}>Total</span>
               <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_HOURS_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatTimeRU(periodTotal)}</span>
-              <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_MONEY_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatAmount((periodTotal / 3600) * settings.hourlyRate, settings.currency)}</span>
+              <span style={{ fontSize: 15, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", flexShrink: 0, width: BREAKDOWN_MONEY_W, textAlign: "right", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif" }}>{formatAmount(periodAmount, settings.currency)}</span>
             </div>
           )}
         </div>

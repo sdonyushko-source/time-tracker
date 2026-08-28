@@ -83,7 +83,13 @@ export default function Tooltip({ content, children }: TooltipProps) {
             lineHeight: "16px",
             padding: "4px 8px",
             borderRadius: 6,
-            whiteSpace: "nowrap",
+            // Long content (e.g. the Commission field's explainer) must
+            // never run wider than the 440px window — nowrap let it grow
+            // past the edge and get clipped. maxWidth wraps it onto 2-3
+            // lines instead; short single-line content (most tooltips)
+            // stays exactly as wide as it needs to be either way.
+            whiteSpace: "normal",
+            maxWidth: 240,
             pointerEvents: "none",
             zIndex: 50,
             fontFamily: "'Inter', sans-serif",
