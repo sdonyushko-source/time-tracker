@@ -661,7 +661,11 @@ function AppContent() {
       ) : (
         <>
           <TitleBarButtons isCompact={false} onToggleView={() => setMainViewMode((m) => (m === "compact" ? "full" : "compact"))} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} focusMinutes={settings.focusMinutes} onFocusToggle={toggleFocus} />
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "none" }}>
+          {/* paddingTop: 6 — permanent headroom for Timer's focus ring (see
+              FocusRing in Timer.tsx), which pokes 6px above the Play/Stop
+              button. Without it, this container's own overflow-y clips the
+              ring's top edge since Timer sits flush against it. */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "none", paddingTop: 6 }}>
             <Timer isActive={isActive} elapsedSeconds={elapsedSeconds} onToggle={handleToggle} onTimeClick={() => setScreen("editActiveEntry")} tasks={tasks} clientGroups={clientGroups} selectedTaskId={selectedTaskId} onTaskSelect={(id) => setSelectedTaskId(id)} focusActive={focusActive} focusStartedAtMs={focusStartedAtMs} focusDurationMs={focusDurationMs} />
             <div style={{
               margin: "8px 8px 12px",

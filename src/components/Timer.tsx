@@ -99,13 +99,11 @@ export default function Timer({ isActive, elapsedSeconds, onToggle, onTimeClick,
     : 0;
 
   return (
-    // marginTop only when a cycle is running: the ring pokes 6px above the
-    // Play/Stop button (see FocusRing above), and in full-mode this Timer
-    // sits flush against the top of a scrollable container (App.tsx) —
-    // without this, that overflow-y clips the ring's top edge. Conditional
-    // so idle layout (the overwhelming common case, and the one CLAUDE.md's
-    // exact pixel values describe) never shifts.
-    <div style={{ position: "relative", height: 56, width: "100%", marginTop: focusActive ? 6 : 0 }}>
+    // Headroom for the focus ring's 6px overflow above the Play/Stop button
+    // (see FocusRing above) is reserved permanently by the full-mode
+    // scrollable container's own paddingTop (App.tsx) — not here, so this
+    // component's layout never shifts based on focusActive.
+    <div style={{ position: "relative", height: 56, width: "100%" }}>
       <div style={{
         position: "absolute",
         left: 24,
