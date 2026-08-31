@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Task, Schedule, getTasks, createSchedule, updateSchedule } from "../db";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { Task, Schedule, getTasks, getSchedules, createSchedule, updateSchedule } from "../db";
 import { useTheme } from "../ThemeContext";
 import ButtonBar from "./ButtonBar";
 import TitleBarSpacer from "./TitleBarSpacer";
@@ -68,6 +69,51 @@ const WEEKDAY_LABELS: { value: number; label: string }[] = [
   { value: 6, label: "Sat" },
   { value: 0, label: "Sun" },
 ];
+
+// weekdays is stored as e.g. "1,2,3,4,5" (JS Date.getDay() convention) —
+// same helper as ScheduleScreen, used here for the overlap-warning text.
+function formatWeekdays(weekdays: string): string {
+  const set = new Set(weekdays.split(",").map(Number));
+  return WEEKDAY_LABELS.filter((d) => set.has(d.value)).map((d) => d.label).join(", ");
+}
+
+interface DaySegment { weekday: number; start: number; end: number; }
+
+// A rule's running time as one or two [start, end) minute ranges tagged by
+// weekday — two ranges for a rule that crosses midnight (its tail on the
+// next day), so overlap-checking doesn't need any separate wrap-around case.
+function scheduleSegments(weekdays: number[], startTime: string, durationMinutes: number): DaySegment[] {
+  const [h, m] = startTime.split(":").map(Number);
+  const start = h * 60 + m;
+  const segments: DaySegment[] = [];
+  for (const wd of weekdays) {
+    if (start + durationMinutes <= 1440) {
+      segments.push({ weekday: wd, start, end: start + durationMinutes });
+    } else {
+      segments.push({ weekday: wd, start, end: 1440 });
+      segments.push({ weekday: (wd + 1) % 7, start: 0, end: start + durationMinutes - 1440 });
+    }
+  }
+  return segments;
+}
+
+function segmentsOverlap(a: DaySegment, b: DaySegment): boolean {
+  return a.weekday === b.weekday && a.start < b.end && b.start < a.end;
+}
+
+// First existing rule (other than the one being edited) whose running time
+// shares any minute with the candidate's — not a hard block, just what the
+// save-time warning popup names.
+function findOverlappingSchedule(candidate: { weekdays: number[]; startTime: string; durationMinutes: number }, others: Schedule[]): Schedule | null {
+  const candidateSegments = scheduleSegments(candidate.weekdays, candidate.startTime, candidate.durationMinutes);
+  for (const other of others) {
+    const otherSegments = scheduleSegments(other.weekdays.split(",").map(Number), other.startTime, other.durationMinutes);
+    if (candidateSegments.some((cs) => otherSegments.some((os) => segmentsOverlap(cs, os)))) {
+      return other;
+    }
+  }
+  return null;
+}
 
 interface ScheduleFormScreenProps {
   schedule: Schedule | null;
@@ -164,6 +210,22 @@ export default function ScheduleFormScreen({ schedule, onClose }: ScheduleFormSc
     const task = tasks.find((t) => t.id === taskId);
     const weekdaysStr = [...weekdays].sort((a, b) => a - b).join(",");
     const durationMinutes = timeDiffMinutes(startTime, endTime);
+
+    // Warn, don't block — the person may well mean to stack rules on
+    // purpose (e.g. a short one nested inside a longer one), so this is a
+    // confirm popup they can save straight through, not a hard validation
+    // error.
+    const allSchedules = await getSchedules();
+    const others = allSchedules.filter((s) => s.id !== schedule?.id);
+    const overlapping = findOverlappingSchedule({ weekdays, startTime, durationMinutes }, others);
+    if (overlapping) {
+      const ok = await confirm(
+        `This overlaps with "${overlapping.taskNameSnapshot}" (${formatWeekdays(overlapping.weekdays)} · ${overlapping.startTime}–${addMinutesToTime(overlapping.startTime, overlapping.durationMinutes)}). Save anyway?`,
+        { title: "Overlapping schedule", kind: "warning" }
+      );
+      if (!ok) return;
+    }
+
     if (schedule) {
       await updateSchedule(schedule.id, taskId, task?.name ?? "", weekdaysStr, startTime, durationMinutes, autoStart);
     } else {
