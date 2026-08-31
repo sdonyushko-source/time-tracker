@@ -1,4 +1,5 @@
 import { useState, useRef, useLayoutEffect, ReactNode } from "react";
+import { useTheme } from "../ThemeContext";
 
 // Window is fixed at 440px (see CLAUDE.md) — hardcoding avoids a window.innerWidth
 // read that would need its own effect/listener for a value that never changes.
@@ -6,16 +7,27 @@ import { useState, useRef, useLayoutEffect, ReactNode } from "react";
 // so that one is read live via window.innerHeight instead.
 const WINDOW_WIDTH = 440;
 const EDGE_MARGIN = 12;
-const SHOW_DELAY_MS = 400;
+const SHOW_DELAY_MS = 500;
 const GAP = 8;
 
 interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
+  // Merged into the anchor span's own style — e.g. { width: "100%" } so a
+  // full-width trigger (the goal progress bar) doesn't collapse to its
+  // content width like a normal inline trigger would.
+  style?: React.CSSProperties;
+  // Every other Tooltip in the app (Focus session, Max session length,
+  // Commission, "Earned this month") stays the fixed black/white bubble —
+  // only the goal progress bar's asked to follow the theme, so this is
+  // opt-in per call site rather than a global change.
+  themed?: boolean;
 }
 
-// Fixed black/white regardless of theme, like the "Report copied" toast —
-// both are short-lived overlays that need to read the same in light and dark.
+// Fixed black/white by default, like the "Report copied" toast — both are
+// short-lived overlays that need to read the same in light and dark. themed
+// switches to the same menuBg/border/textPrimary surface as the "..."
+// dropdown, for the one call site that asked to follow light/dark instead.
 //
 // The bubble is positioned in two passes: it first renders invisible so its
 // size can be measured, then a layout effect computes an offset clamped to
@@ -25,7 +37,10 @@ interface TooltipProps {
 // bar with almost no space above it. The arrow stays glued to the trigger's
 // true horizontal center regardless of that clamp, so it always points
 // exactly at the trigger even when the bubble itself had to shift.
-export default function Tooltip({ content, children }: TooltipProps) {
+export default function Tooltip({ content, children, style, themed }: TooltipProps) {
+  const { colors } = useTheme();
+  const bubbleBg = themed ? colors.menuBg : "#000000";
+  const bubbleColor = themed ? colors.textPrimary : "#FFFFFF";
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number; arrowLeft: number; placement: "top" | "bottom" } | null>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -65,7 +80,7 @@ export default function Tooltip({ content, children }: TooltipProps) {
         setVisible(false);
         setPos(null);
       }}
-      style={{ position: "relative", display: "flex", alignItems: "center" }}
+      style={{ position: "relative", display: "flex", alignItems: "center", ...style }}
     >
       {children}
       {visible && (
@@ -77,8 +92,10 @@ export default function Tooltip({ content, children }: TooltipProps) {
             top: pos ? pos.top : 0,
             transform: placement === "top" ? "translateY(-100%)" : "none",
             visibility: pos ? "visible" : "hidden",
-            background: "#000000",
-            color: "#FFFFFF",
+            background: bubbleBg,
+            color: bubbleColor,
+            border: themed ? `1px solid ${colors.border}` : "none",
+            boxShadow: themed ? colors.menuShadow : "none",
             fontSize: 12,
             lineHeight: "16px",
             padding: "4px 8px",
@@ -100,8 +117,8 @@ export default function Tooltip({ content, children }: TooltipProps) {
             style={{
               position: "absolute",
               ...(placement === "top"
-                ? { top: "100%", borderTop: "5px solid #000000" }
-                : { bottom: "100%", borderBottom: "5px solid #000000" }),
+                ? { top: "100%", borderTop: `5px solid ${bubbleBg}` }
+                : { bottom: "100%", borderBottom: `5px solid ${bubbleBg}` }),
               left: pos ? pos.arrowLeft : "50%",
               transform: "translateX(-50%)",
               width: 0,

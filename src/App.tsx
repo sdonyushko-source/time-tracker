@@ -530,81 +530,79 @@ function AppContent() {
   // timer, instead of a separate parallel tick implementation.
   useEffect(() => {
     const checkSchedules = async () => {
-      // Duration elapsed for the entry a schedule auto-started — stop it,
-      // but only if it's still the same entry (guards against the user
-      // having switched tasks or stopped manually in the meantime).
-      if (scheduledStopRef.current && Date.now() >= scheduledStopRef.current.stopAtMs) {
-        const { entryId } = scheduledStopRef.current;
-        scheduledStopRef.current = null;
-        if (activeEntryIdRef.current === entryId) stopActiveRef.current();
-      }
-
-      // Safety net for the auto-stop deadline (plannedEndTime / max session
-      // length): this reuses the same self-realigning tick as the schedule
-      // checks below rather than a dedicated OS wake listener — a JS timer
-      // suspended through a system sleep just fires as soon as it's next
-      // given a chance to run, checks real elapsed time, and catches up
-      // immediately. The Rust thread (start_auto_stop) is what makes this
-      // fire *promptly* while the window is merely hidden; this is only for
-      // the cases that don't survive — app quit, or a sleep the thread
-      // itself didn't (see 2.6).
-      if (autoStopArmedRef.current && Date.now() >= autoStopArmedRef.current.deadlineMs) {
-        finalizeAutoStopRef.current();
-      }
-
-      const schedules = await getSchedules();
-      if (!schedules.length) return;
-      const now = new Date();
-      const today = getLocalDate();
-      const weekday = now.getDay();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      for (const s of schedules) {
-        if (!s.weekdays.split(",").map(Number).includes(weekday)) continue;
-        const [sh, sm] = s.startTime.split(":").map(Number);
-        const startMinutes = sh * 60 + sm;
-        const key = `${s.id}:${today}`;
-
-        if (nowMinutes === startMinutes - 5 && !notifiedScheduleRef.current.has(key)) {
-          notifiedScheduleRef.current.add(key);
-          let granted = await isPermissionGranted();
-          if (!granted) granted = (await requestPermission()) === "granted";
-          if (granted) sendNotification({ title: "Cuckoo", body: `${s.taskNameSnapshot} starts in 5 minutes` });
+      try {
+        // Duration elapsed for the entry a schedule auto-started — stop it,
+        // but only if it's still the same entry (guards against the user
+        // having switched tasks or stopped manually in the meantime).
+        if (scheduledStopRef.current && Date.now() >= scheduledStopRef.current.stopAtMs) {
+          const { entryId } = scheduledStopRef.current;
+          scheduledStopRef.current = null;
+          if (activeEntryIdRef.current === entryId) stopActiveRef.current();
         }
 
-        if (nowMinutes === startMinutes && s.autoStart && !autoStartedScheduleRef.current.has(key)) {
-          autoStartedScheduleRef.current.add(key);
-          const entryId = await handleTaskStartRef.current(s.taskId);
-          // stopAtMs is derived from the rule's *nominal* start minute (today
-          // at sh:sm:00), not from whenever this tick actually fired — so it
-          // lands on an exact minute boundary regardless of the tick's own
-          // sub-second jitter, and the aligned ticks below then catch it on
-          // time instead of up to a minute late.
-          if (entryId) {
-            const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm, 0, 0);
-            scheduledStopRef.current = { entryId, stopAtMs: startDate.getTime() + s.durationMinutes * 60000 };
+        // Safety net for the auto-stop deadline (plannedEndTime / max session
+        // length): this reuses the same tick as the schedule checks below
+        // rather than a dedicated OS wake listener — even if this tick
+        // itself arrives late, it checks real elapsed time and catches up
+        // immediately. The Rust thread (start_auto_stop) is what makes this
+        // fire *promptly* while the window is merely hidden; this is only
+        // for the cases that don't survive — app quit, or a sleep the
+        // thread itself didn't (see 2.6).
+        if (autoStopArmedRef.current && Date.now() >= autoStopArmedRef.current.deadlineMs) {
+          finalizeAutoStopRef.current();
+        }
+
+        const schedules = await getSchedules();
+        if (!schedules.length) return;
+        const now = new Date();
+        const today = getLocalDate();
+        const weekday = now.getDay();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        for (const s of schedules) {
+          if (!s.weekdays.split(",").map(Number).includes(weekday)) continue;
+          const [sh, sm] = s.startTime.split(":").map(Number);
+          const startMinutes = sh * 60 + sm;
+          const key = `${s.id}:${today}`;
+
+          if (nowMinutes === startMinutes - 5 && !notifiedScheduleRef.current.has(key)) {
+            notifiedScheduleRef.current.add(key);
+            let granted = await isPermissionGranted();
+            if (!granted) granted = (await requestPermission()) === "granted";
+            if (granted) sendNotification({ title: "Cuckoo", body: `${s.taskNameSnapshot} starts in 5 minutes` });
+          }
+
+          if (nowMinutes === startMinutes && s.autoStart && !autoStartedScheduleRef.current.has(key)) {
+            autoStartedScheduleRef.current.add(key);
+            const entryId = await handleTaskStartRef.current(s.taskId);
+            // stopAtMs is derived from the rule's *nominal* start minute
+            // (today at sh:sm:00), not from whenever this tick actually
+            // fired — so it lands on an exact minute boundary regardless of
+            // the tick's own sub-second jitter, and later ticks then catch
+            // it on time instead of up to a minute late.
+            if (entryId) {
+              const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm, 0, 0);
+              scheduledStopRef.current = { entryId, stopAtMs: startDate.getTime() + s.durationMinutes * 60000 };
+            }
           }
         }
+      } catch (err) {
+        // A single failed tick (a rejected permission prompt, a transient DB
+        // hiccup, anything) must never take the whole recurring checker down
+        // with it — every future minute-tick still reaches this function
+        // regardless of what happened on the last one.
+        console.error("schedule check failed", err);
       }
     };
 
-    // A plain setInterval(fn, 60000) started on mount ticks 60s apart from
-    // whatever moment the app happened to launch — not from real clock
-    // minute boundaries — so a schedule's start/stop could fire up to ~59s
-    // late. This instead re-schedules itself via setTimeout for just past
-    // (+250ms, so Date() reliably reads the new minute) each next :00.
-    let timeoutId: ReturnType<typeof setTimeout>;
-    let cancelled = false;
-    const scheduleNextTick = () => {
-      const delay = 60000 - (Date.now() % 60000) + 250;
-      timeoutId = setTimeout(async () => {
-        if (cancelled) return;
-        await checkSchedules();
-        scheduleNextTick();
-      }, delay);
-    };
+    // Woken by the Rust-side minute ticker (see start_minute_ticker in
+    // lib.rs) rather than a JS setInterval/setTimeout — a renderer-side
+    // timer gets throttled/suspended by WKWebView once the window loses
+    // visibility (same reason the tray timer and auto-stop deadline are
+    // native threads), which could previously delay this tick past its own
+    // exact-minute check and silently miss that day's autostart.
     checkSchedules();
-    scheduleNextTick();
-    return () => { cancelled = true; clearTimeout(timeoutId); };
+    const unlisten = listen("minute-tick", () => { checkSchedules(); });
+    return () => { unlisten.then((f) => f()); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

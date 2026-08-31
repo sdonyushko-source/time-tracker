@@ -241,6 +241,26 @@ fn stop_auto_stop(state: tauri::State<AutoStopState>) {
     state.0.fetch_add(1, Ordering::SeqCst);
 }
 
+// Wakes the frontend's recurring-schedule checker at every real clock
+// minute boundary, for the app's whole lifetime — no start/stop, no
+// generation counter, since nothing ever cancels or restarts this one.
+// Previously that checker was a self-rescheduling JS setTimeout, which is
+// exactly the kind of renderer-side timer WKWebView throttles/suspends once
+// the window loses visibility (see start_tray_timer above) — so a schedule
+// due while the window was hidden could fire late enough to miss its own
+// exact-minute check. A native thread sleeps for the real wall-clock
+// duration regardless of window visibility, same as the tray timer.
+fn start_minute_ticker(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+        // +250ms past the boundary so a fresh Date() on the JS side reliably
+        // reads the new minute rather than racing it.
+        let wait_ms = (60_000 - now_ms.rem_euclid(60_000) + 250) as u64;
+        std::thread::sleep(Duration::from_millis(wait_ms));
+        let _ = app.emit("minute-tick", ());
+    });
+}
+
 // Schema is created (and kept up to date) by initDB() in src/db.ts via
 // `CREATE TABLE IF NOT EXISTS`. We intentionally don't register sqlx
 // migrations here: sqlx checksums each migration's SQL text and refuses to
@@ -264,6 +284,7 @@ pub fn run() {
             _app.on_menu_event(|app_handle, event| {
                 let _ = app_handle.emit("menu-action", event.id().0.clone());
             });
+            start_minute_ticker(_app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

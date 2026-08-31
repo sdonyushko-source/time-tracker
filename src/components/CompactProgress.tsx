@@ -1,6 +1,8 @@
 import { TimeEntry, Settings } from "../db";
 import { formatTimeRU, computeGoalProgress } from "../utils";
 import { useTheme } from "../ThemeContext";
+import Tooltip from "./Tooltip";
+import GoalTooltipContent from "./GoalTooltipContent";
 
 interface CompactProgressProps {
   last7Entries: TimeEntry[];
@@ -35,18 +37,32 @@ export default function CompactProgress({ last7Entries, settings, isActive, elap
   return (
     <div style={{ display: "flex", alignItems: "center" }}>
       <div style={{ width: 220, boxSizing: "border-box", paddingLeft: 24 }}>
-        <div style={{ height: 8, width: "100%", borderRadius: 40, background: colors.progressTrack, overflow: "hidden", display: "flex" }}>
-          <div style={{ height: 8, width: `${greenPct}%`, flexShrink: 0, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
-          {ghostPct > 0 && (
-            <div style={{ height: 8, width: `${ghostPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)" }} />
-          )}
-          {orangePct > 0 && (
-            <div style={{ height: 8, width: `${orangePct}%`, flexShrink: 0, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)", boxShadow: "0px 4px 20px 0px rgba(153,44,16,0.3)" }} />
-          )}
-          {ghostOverPct > 0 && (
-            <div style={{ height: 8, width: `${ghostOverPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)" }} />
-          )}
-        </div>
+        <Tooltip
+          style={{ width: "100%" }}
+          themed
+          content={
+            <GoalTooltipContent
+              closedSeconds={closedSeconds}
+              runningSeconds={runningSeconds}
+              goalSeconds={dailyGoalSeconds}
+              isActive={isActive}
+              dailyGoalEnabled={settings.dailyGoalEnabled}
+            />
+          }
+        >
+          <div style={{ height: 8, width: "100%", borderRadius: 40, background: colors.progressTrack, overflow: "hidden", display: "flex" }}>
+            <div style={{ height: 8, width: `${greenPct}%`, flexShrink: 0, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)", boxShadow: "0px 4px 20px 0px rgba(33,152,81,0.3)" }} />
+            {ghostPct > 0 && (
+              <div style={{ height: 8, width: `${ghostPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #8FD75F 24.6%, #31D877 69.3%)" }} />
+            )}
+            {orangePct > 0 && (
+              <div style={{ height: 8, width: `${orangePct}%`, flexShrink: 0, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)", boxShadow: "0px 4px 20px 0px rgba(153,44,16,0.3)" }} />
+            )}
+            {ghostOverPct > 0 && (
+              <div style={{ height: 8, width: `${ghostOverPct}%`, flexShrink: 0, opacity: 0.4, background: "linear-gradient(176deg, #FF7552 24.6%, #FF5125 69.3%)" }} />
+            )}
+          </div>
+        </Tooltip>
       </div>
       <div style={{ width: 220, boxSizing: "border-box", paddingRight: 24, display: "flex", justifyContent: "flex-end" }}>
         <span style={{ fontSize: 14, color: colors.textPrimary, lineHeight: "24px", fontVariantNumeric: "tabular-nums", fontFamily: "'Inter', sans-serif", whiteSpace: "nowrap" }}>
