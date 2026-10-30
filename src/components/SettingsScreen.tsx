@@ -173,7 +173,9 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
             <div style={rowStyle}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={labelStyle}>Daily goal</span>
-                <InfoIcon color={colors.textSecondary} />
+                <Tooltip content="Hours or earnings you aim for each day. Shown as the progress bar on the main screen.">
+                  <InfoIcon color={colors.textSecondary} />
+                </Tooltip>
               </div>
               <Toggle
                 on={settings.dailyGoalEnabled}
@@ -252,7 +254,9 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
           <div style={rowStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={labelStyle}>Round time in report</span>
-              <InfoIcon color={colors.textSecondary} />
+              <Tooltip content="Rounds the monthly total up to this step in the copied report. Tracked time isn't changed.">
+                <InfoIcon color={colors.textSecondary} />
+              </Tooltip>
             </div>
             <div style={selectWrapStyle}>
               <span style={{ flex: 1, minWidth: 0 }}>

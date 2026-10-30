@@ -226,11 +226,28 @@ function AppContent() {
   // Forces Timer's ring and TitleBarButtons' tooltip to recompute their
   // wall-clock-derived progress/remaining-time once a second while a cycle
   // is running — see the comment on focusStartedAtMs above.
+  //
+  // Also self-corrects focusActive off wall-clock time instead of waiting
+  // solely on the Rust "focus-complete" event: that event fires off a
+  // std::thread::sleep whose count pauses while the system is asleep (lid
+  // closed, display sleep), so after a suspend it can land minutes late.
+  // Date.now() keeps advancing through a suspend, so the ring/tooltip here
+  // already read as finished (100% / "0 min left") the moment real time is
+  // up — without this, focusActive (and the ring + titlebar button it
+  // drives) would stay stuck "on" in the meantime. The eventual late Rust
+  // event still arrives and calls the same setters, harmlessly.
   useEffect(() => {
     if (!focusActive) return;
-    const interval = setInterval(() => setFocusTick((n) => n + 1), 1000);
+    const interval = setInterval(() => {
+      if (focusStartedAtMs !== null && Date.now() - focusStartedAtMs >= focusDurationMs) {
+        setFocusActive(false);
+        setFocusStartedAtMs(null);
+        return;
+      }
+      setFocusTick((n) => n + 1);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [focusActive]);
+  }, [focusActive, focusStartedAtMs, focusDurationMs]);
 
   useEffect(() => {
     (async () => {

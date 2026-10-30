@@ -178,15 +178,17 @@ interface ReportOptions {
 // shared a single number to begin with.
 export function buildMonthlyReportText(entries: ReportEntry[], dateRange: string, { currency, roundReportMinutes }: ReportOptions): string {
   const roundUnit = (roundReportMinutes || 0) * 60;
-  const roundDuration = (secs: number) => (roundUnit ? Math.round(secs / roundUnit) * roundUnit : secs);
+  const roundDuration = (secs: number) => (roundUnit ? Math.ceil(secs / roundUnit) * roundUnit : secs);
 
+  // Rounding is applied once to the month total, not per entry — rounding
+  // every entry separately compounded the error (short entries dropped to 0).
   const taskMap: Record<string, { name: string; seconds: number }> = {};
-  let totalAmount = 0;
+  let rawAmount = 0;
   entries.forEach((e) => {
     if (!taskMap[e.taskId]) taskMap[e.taskId] = { name: e.taskNameSnapshot, seconds: 0 };
-    const rounded = roundDuration(e.durationSeconds ?? 0);
-    taskMap[e.taskId].seconds += rounded;
-    totalAmount += (rounded / 3600) * (e.hourlyRateSnapshot ?? 0);
+    const secs = e.durationSeconds ?? 0;
+    taskMap[e.taskId].seconds += secs;
+    rawAmount += (secs / 3600) * (e.hourlyRateSnapshot ?? 0);
   });
 
   const fmtHM = (secs: number) => {
@@ -201,12 +203,17 @@ export function buildMonthlyReportText(entries: ReportEntry[], dateRange: string
     return `${amount.toFixed(0)}${symbol}`;
   };
 
-  let totalSeconds = 0;
+  let rawSeconds = 0;
   const taskLines: string[] = [];
   Object.values(taskMap).forEach(({ name, seconds }) => {
     taskLines.push(`${name} – ${fmtHM(seconds)}`);
-    totalSeconds += seconds;
+    rawSeconds += seconds;
   });
+
+  // Earned scales with the rounded total so time and money stay consistent
+  // (entries can carry different rates, hence scaling instead of one rate).
+  const totalSeconds = roundDuration(rawSeconds);
+  const totalAmount = rawSeconds > 0 ? rawAmount * (totalSeconds / rawSeconds) : 0;
 
   return [dateRange, fmtHM(totalSeconds), taskLines.join(", "), fmtAmount(totalAmount)].join("\n");
 }
