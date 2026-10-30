@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef, Fragment } from "react";
-import { Settings, TimeEntry, getAllEntries } from "../db";
-import { formatTimeRU, formatAmount, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange } from "../utils";
+import { Settings, TimeEntry, Task, Client, getAllEntries } from "../db";
+import { formatTimeRU, formatAmount, buildMonthlyReportText, copyTextToClipboard, formatMonthDateRange, computeVisibleClients, resolveClientId, clientDisplayName } from "../utils";
 import { useTheme } from "../ThemeContext";
 import ButtonBar from "./ButtonBar";
 import TitleBarSpacer from "./TitleBarSpacer";
 
 interface StatisticsScreenProps {
   settings: Settings;
+  clients: Client[];
+  // All tasks including archived ones — an entry of a since-archived task
+  // still has to resolve to its client for the client filter.
+  allTasks: Task[];
   onClose: () => void;
 }
 
@@ -202,7 +206,7 @@ function formatDateDisplay(dateValue: string): string {
 
 // ── screen ───────────────────────────────────────────────────────────────
 
-export default function StatisticsScreen({ settings, onClose }: StatisticsScreenProps) {
+export default function StatisticsScreen({ settings, clients, allTasks, onClose }: StatisticsScreenProps) {
   const theme = useTheme();
   const { colors } = theme;
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -215,14 +219,24 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // "all" or a client id — narrows every number on this screen (chart,
+  // average, breakdown and the copied report) to that client's entries.
+  const [clientFilter, setClientFilter] = useState<string>("all");
+
   useEffect(() => { getAllEntries().then(setEntries); }, []);
+
+  const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
+  const visibleClients = computeVisibleClients(clients, allTasks);
+  const taskClientMap: Record<string, string> = {};
+  allTasks.forEach((t) => { taskClientMap[t.id] = resolveClientId(t, defaultClientId); });
+  const entryClientId = (e: TimeEntry) => taskClientMap[e.taskId] ?? defaultClientId;
 
   const pointerDate = new Date(pointerTs);
 
   // Completed entries only (endTime set) — matches the aggregation
   // convention used everywhere else in the app (MainContent, TodaySection,
   // getLast7DaysEntries), so a still-running entry never skews the chart.
-  const completed = entries.filter((e) => e.endTime);
+  const completed = entries.filter((e) => e.endTime && (clientFilter === "all" || entryClientId(e) === clientFilter));
   const totalsByDate: Record<string, number> = {};
   completed.forEach((e) => { totalsByDate[e.date] = (totalsByDate[e.date] ?? 0) + (e.durationSeconds ?? 0); });
 
@@ -563,6 +577,29 @@ export default function StatisticsScreen({ settings, onClose }: StatisticsScreen
             </div>
           )}
         </div>
+
+        {/* Client filter — only when there is more than one client to pick
+            from, the same 2+ threshold every other client UI uses. */}
+        {visibleClients.length >= 2 && (
+          <div style={{ marginTop: 8, height: 32, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px 0 16px", background: colors.inputBg, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: "border-box" }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 15, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12, pointerEvents: "none" }}>
+              {clientFilter === "all" ? "All clients" : (() => { const c = clients.find((x) => x.id === clientFilter); return c ? clientDisplayName(c) : "All clients"; })()}
+            </span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, pointerEvents: "none" }}>
+              <path d="M2 5L8 11L14 5" stroke={colors.textPrimary} strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%", fontSize: 15, fontFamily: "'Inter', sans-serif" }}
+            >
+              <option value="all">All clients</option>
+              {visibleClients.map((c) => (
+                <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Chart */}
         <div style={{ marginTop: 8 }}>

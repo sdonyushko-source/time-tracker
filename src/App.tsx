@@ -713,7 +713,7 @@ function AppContent() {
   }
 
   if (screen === "statistics") {
-    return <StatisticsScreen settings={settings} onClose={() => setScreen("timer")} />;
+    return <StatisticsScreen settings={settings} clients={clients} allTasks={allTasks} onClose={() => setScreen("timer")} />;
   }
 
   if (screen === "schedule") {

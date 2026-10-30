@@ -13,9 +13,20 @@ export async function updateEntry(
   taskName: string,
   startTime: string,
   endTime: string,
-  durationSeconds: number
+  durationSeconds: number,
+  // Only passed when the entry moved to a different client — the rate
+  // snapshot then follows the new client. Left out, the entry keeps the rate
+  // it was tracked at (editing times or the task within the same client).
+  hourlyRate?: number
 ): Promise<void> {
   const db = await getDB();
+  if (hourlyRate !== undefined) {
+    await db.execute(
+      "UPDATE time_entries SET taskId=?, taskNameSnapshot=?, startTime=?, endTime=?, durationSeconds=?, hourlyRateSnapshot=?, updatedAt=? WHERE id=?",
+      [taskId, taskName, startTime, endTime, durationSeconds, hourlyRate, new Date().toISOString(), id]
+    );
+    return;
+  }
   await db.execute(
     "UPDATE time_entries SET taskId=?, taskNameSnapshot=?, startTime=?, endTime=?, durationSeconds=?, updatedAt=? WHERE id=?",
     [taskId, taskName, startTime, endTime, durationSeconds, new Date().toISOString(), id]

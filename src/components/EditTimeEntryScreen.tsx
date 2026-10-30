@@ -106,22 +106,33 @@ export default function EditTimeEntryScreen({ entries, tasks, clients, onClose }
 
   // All sessions here share one taskId (App.tsx filters entries by a single
   // taskId+date before opening this screen), so they share one client too —
-  // shown once under the header rather than repeated per session. Only
-  // shown at all when there are 2+ visible clients (see
+  // picked once in a Client field above the sessions rather than per
+  // session. Only shown at all when there are 2+ visible clients (see
   // computeVisibleClients in utils.ts), same threshold as everywhere else
-  // a client label appears.
+  // a client appears.
   const visibleClients = computeVisibleClients(clients, tasks);
   const defaultClientId = clients.find((c) => c.isDefault)?.id ?? "";
-  const sharedTaskId = entries[0]?.taskId ?? sessions[0]?.taskId;
-  const sharedClientId = (() => {
-    const task = tasks.find((t) => t.id === sharedTaskId);
+  const originalTaskId = entries[0]?.taskId ?? sessions[0]?.taskId;
+  const originalClientId = (() => {
+    const task = tasks.find((t) => t.id === originalTaskId);
     return task ? resolveClientId(task, defaultClientId) : defaultClientId;
   })();
-  const sharedClient = clients.find((c) => c.id === sharedClientId);
-  // Every session's task dropdown is restricted to the same client's tasks
-  // — otherwise the shared client line above would go stale the moment a
-  // session's task changes to a different client's.
-  const sameClientTasks = tasks.filter((t) => resolveClientId(t, defaultClientId) === sharedClientId);
+  const [sharedClientId, setSharedClientId] = useState<string>(originalClientId);
+  const tasksOfClient = (clientId: string) => tasks.filter((t) => resolveClientId(t, defaultClientId) === clientId);
+  // Every session's task dropdown is restricted to the chosen client's tasks,
+  // so the entry's client is always exactly the one picked above.
+  const sameClientTasks = tasksOfClient(sharedClientId);
+  // A client can only be picked if it has a task to move the entry to.
+  const clientOptions = visibleClients.filter((c) => c.id === sharedClientId || tasksOfClient(c.id).length > 0);
+
+  // Moving to another client: each session keeps its task if that task
+  // already belongs to the new client, otherwise takes the client's first task.
+  const handleClientChange = (clientId: string) => {
+    const clientTasks = tasksOfClient(clientId);
+    if (clientTasks.length === 0) return;
+    setSharedClientId(clientId);
+    setSessions((prev) => prev.map((s) => (clientTasks.some((t) => t.id === s.taskId) ? s : { ...s, taskId: clientTasks[0].id })));
+  };
 
   const updateSession = (index: number, patch: Partial<SessionEdit>) => {
     setSessions((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -152,7 +163,11 @@ export default function EditTimeEntryScreen({ entries, tasks, clients, onClose }
       const endISO = new Date(endMs).toISOString();
       const dur = Math.round((endMs - startMs) / 1000);
       const task = tasks.find((t) => t.id === session.taskId);
-      await updateEntry(session.id, session.taskId, task?.name ?? "", startISO, endISO, dur);
+      // Same rule as starting an entry (App.tsx resolveRateForTask): a paid
+      // client's rate, otherwise 0. Only re-snapshotted when the client changed.
+      const newClient = clients.find((c) => c.id === sharedClientId);
+      const rate = sharedClientId !== originalClientId ? (newClient && newClient.isPaid ? newClient.rate : 0) : undefined;
+      await updateEntry(session.id, session.taskId, task?.name ?? "", startISO, endISO, dur, rate);
     }
     onClose();
   };
@@ -208,14 +223,31 @@ export default function EditTimeEntryScreen({ entries, tasks, clients, onClose }
             </svg>
           </button>
         </div>
-        {visibleClients.length >= 2 && sharedClient && (
-          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: colors.textSecondary }}>
-            {clientDisplayName(sharedClient)}
-          </span>
-        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 84px" }}>
+        {/* Client — one for all sessions; changing it moves the entry to that
+            client's tasks (see handleClientChange). */}
+        {visibleClients.length >= 2 && (
+          <div style={{ ...fieldBase, marginTop: 12, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px 0 16px" }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 16, color: colors.textPrimary, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12, pointerEvents: "none" }}>
+              {(() => { const c = clients.find((x) => x.id === sharedClientId); return c ? clientDisplayName(c) : ""; })()}
+            </span>
+            <div style={{ flexShrink: 0, pointerEvents: "none" }}>
+              <ChevronDown color={colors.textPrimary} />
+            </div>
+            <select
+              value={sharedClientId}
+              onChange={(e) => handleClientChange(e.target.value)}
+              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%", fontSize: 16, fontFamily: "'Inter', sans-serif" }}
+            >
+              {clientOptions.map((c) => (
+                <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Session cards */}
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
           {sessions.map((session, i) => (
