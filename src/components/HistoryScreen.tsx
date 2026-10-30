@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, Fragment } from "react";
 import { Settings, TimeEntry, getAllEntries } from "../db";
 import { formatTime, formatAmount } from "../utils";
 import { useTheme } from "../ThemeContext";
@@ -89,17 +89,42 @@ function groupEntries(entries: TimeEntry[], activeEntryId: string | null): Month
   return result;
 }
 
+// Where the list was when an entry was opened for editing. This screen is
+// unmounted while Edit time entry is shown, so without this the list came
+// back scrolled to the top with every "more" collapsed. Set on an entry click,
+// used once by the next mount (the return from editing), then cleared — so
+// opening History afresh still starts at the top.
+let returnView: { showFullMonth: boolean; expandedMonths: string[]; scrollTop: number } | null = null;
+
 export default function HistoryScreen({ activeEntryId, focusDate, settings, onClose, onEntryClick }: HistoryScreenProps) {
   const { colors } = useTheme();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [showFullMonth, setShowFullMonth] = useState(false);
-  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const restoreRef = useRef(returnView);
+  returnView = null;
+  const returningFromEdit = useRef(restoreRef.current !== null).current;
+  const [showFullMonth, setShowFullMonth] = useState(restoreRef.current?.showFullMonth ?? false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set(restoreRef.current?.expandedMonths ?? []));
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [hoveredTaskKey, setHoveredTaskKey] = useState<string | null>(null);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const monthRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => { getAllEntries().then(setEntries); }, []);
+
+  // Back from editing: once the list is rendered again, put the scroll
+  // position back before the frame paints, so there's no jump from the top.
+  useLayoutEffect(() => {
+    const view = restoreRef.current;
+    if (!view || entries.length === 0 || !scrollRef.current) return;
+    scrollRef.current.scrollTop = view.scrollTop;
+    restoreRef.current = null;
+  }, [entries.length]);
+
+  const openEntry = (taskId: string, date: string) => {
+    returnView = { showFullMonth, expandedMonths: Array.from(expandedMonths), scrollTop: scrollRef.current?.scrollTop ?? 0 };
+    onEntryClick(taskId, date);
+  };
 
   const toggleMonth = (ym: string) => {
     setExpandedMonths((prev) => {
@@ -119,7 +144,8 @@ export default function HistoryScreen({ activeEntryId, focusDate, settings, onCl
   // clicked at. Dates in the current month get their own day card; older
   // dates only exist as a collapsed month row, so that's what we highlight.
   useEffect(() => {
-    if (!focusDate || entries.length === 0) return;
+    // Coming back from editing keeps the spot the list was left at instead.
+    if (returningFromEdit || !focusDate || entries.length === 0) return;
     const ym = focusDate.slice(0, 7);
     const key = ym === thisYM ? focusDate : ym;
     const raf = requestAnimationFrame(() => {
@@ -148,7 +174,7 @@ export default function HistoryScreen({ activeEntryId, focusDate, settings, onCl
           return (
             <div
               key={task.taskId}
-              onClick={() => onEntryClick(task.taskId, day.date)}
+              onClick={() => openEntry(task.taskId, day.date)}
               onMouseEnter={() => setHoveredTaskKey(taskKey)}
               onMouseLeave={() => setHoveredTaskKey(null)}
               style={{
@@ -238,7 +264,7 @@ export default function HistoryScreen({ activeEntryId, focusDate, settings, onCl
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6L18 18" stroke={colors.textPrimary} strokeWidth="1.5" strokeLinecap="round"/></svg>
         </button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
         {blocks.map((b, idx) => (
           <Fragment key={b.key}>
             {idx > 0 && !b.noSeparator && <div style={{ height: 1, background: colors.border, flexShrink: 0 }} />}
